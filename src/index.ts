@@ -13,6 +13,8 @@ export { RetryManager } from './managers/RetryManager';
 
 // 导出工具函数
 export { generateRequestKey } from './utils/requestKey';
+export { toFormData, checkType, flattenFormData } from './utils/formData';
+export type { FormDataValue, FlattenedEntry, TypeCheckResult } from './utils/formData';
 
 // 默认导出
 import { AxiosRequest } from './core/AxiosRequest';

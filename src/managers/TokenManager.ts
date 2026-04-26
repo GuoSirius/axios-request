@@ -93,7 +93,7 @@ export class TokenManager {
     return new Promise((resolve, reject) => {
       this.requestQueue.push({
         config,
-        resolve: (value) => {
+        resolve: (_value) => {
           // 重试请求
           this.retryRequest(config, axiosInstance).then(resolve).catch(reject);
         },
