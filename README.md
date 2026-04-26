@@ -819,79 +819,35 @@ const { AxiosRequest } = require('axios-request');
 
 ### 环境要求
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
+- Node.js >= 24
 
 ### 开发命令
 
 ```bash
-# 安装依赖
-npm install
-
-# 开发模式（监听文件变化）
-npm run dev
-
-# 类型检查
-npm run typecheck
-
-# 代码检查
-npm run lint
-
-# 运行测试
-npm run test
-
-# 运行测试（监听模式）
-npm run test:watch
-
-# 构建
-npm run build
-
-# 验证（类型检查 + 代码检查 + 测试）
-npm run validate
-```
-
-### 双平台推送配置
-
-如果需要同时推送到 Gitee 和 GitHub，先添加 GitHub 远程仓库：
-
-```bash
-# 添加 GitHub 远程仓库
-git remote add github https://github.com/your-username/axios-request.git
-
-# 或使用 SSH
-git remote add github git@github.com:your-username/axios-request.git
-```
-
-使用一键发布脚本：
-
-```bash
-# 提交并推送到所有远程仓库
-./scripts/publish.sh "feat: 新增功能"
-
-# 创建版本标签并推送
-./scripts/tag.sh 1.0.0
+npm install          # 安装依赖
+npm run dev          # 开发模式（监听文件变化）
+npm run validate     # 验证（类型检查 + lint + 测试）
+npm run build        # 构建
+npm run publish      # 一键发布（交互式）
+npm run publish -- 1.0.0  # 指定版本发布
 ```
 
 ### 发布流程
 
-1. **开发测试**：确保所有测试通过 `npm run validate`
-2. **提交代码**：使用 conventional commit 格式
-3. **推送代码**：推送到 Gitee 和 GitHub
-4. **创建标签**：使用 `git tag v1.0.0` 或 `./scripts/tag.sh 1.0.0`
-5. **自动发布**：GitHub Actions 会自动构建并发布到 npm
+```bash
+# 一键发布（自动完成：验证 → 构建 → 更新版本 → 生成changelog → 提交 → 推送 → 打标签）
+npm run publish
 
-### GitHub Actions
+# GitHub Actions 自动完成：安装依赖 → 测试 → 构建 → 发布npm
+```
 
-- **CI 工作流**：在每次 push 和 PR 时自动运行类型检查、代码检查和测试
-- **Release 工作流**：在推送版本标签时自动构建并发布到 npm
+### GitHub 远程配置（可选）
 
-### 版本号规则
+```bash
+git remote add github https://github.com/your-username/axios-request.git
+```
 
-使用语义化版本 (SemVer)：
-
-- **主版本号 (1.0.0)**：不兼容的 API 变更
-- **次版本号 (1.1.0)**：向后兼容的新功能
-- **修订号 (1.0.1)**：向后兼容的 Bug 修复
+推送标签后，GitHub Actions 会自动构建并发布到 npm。
 
 ---
 

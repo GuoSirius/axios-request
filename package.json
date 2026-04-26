@@ -34,7 +34,8 @@
     "prepublishOnly": "npm run build",
     "release:version": "node scripts/release.js --version",
     "release:changelog": "node scripts/changelog.js",
-    "release": "npm run validate && npm run build"
+    "release": "npm run validate && npm run build",
+    "publish": "node scripts/release.js"
   },
   "keywords": [
     "axios",
@@ -47,6 +48,9 @@
   ],
   "author": "SiriuSSupreme",
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "repository": {
     "type": "git",
     "url": "https://gitee.com/siriussupreme/axios-request.git"
