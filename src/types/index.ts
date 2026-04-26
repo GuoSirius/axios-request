@@ -37,13 +37,13 @@ export interface TokenManagerConfig {
  * 防重复提交配置
  */
 export interface DedupeConfig {
-  /** 是否启用防重复提交，默认false */
-  enabled: boolean;
-  /** 防重复提交的时间窗口（毫秒），默认1000ms */
+  /** 是否启用防重复提交，默认 true */
+  enabled?: boolean;
+  /** 防重复提交的时间窗口（毫秒），默认 1000ms */
   duration?: number;
-  /** 需要防重复提交的方法，默认['POST', 'PUT', 'PATCH', 'DELETE'] */
+  /** 需要防重复提交的方法，默认 ['POST', 'PUT', 'PATCH', 'DELETE'] */
   methods?: string[];
-  /** 自定义生成请求key的函数（可选） */
+  /** 自定义生成请求key的函数 */
   generateKey?: (config: AxiosRequestConfig) => string;
 }
 
@@ -51,11 +51,11 @@ export interface DedupeConfig {
  * 请求取消配置（用于搜索等场景）
  */
 export interface CancelConfig {
-  /** 是否启用请求取消，默认false */
-  enabled: boolean;
-  /** 需要取消请求的方法，默认['GET'] */
+  /** 是否启用请求取消，默认 true */
+  enabled?: boolean;
+  /** 需要取消请求的方法，默认 ['GET'] */
   methods?: string[];
-  /** 自定义生成请求key的函数（可选） */
+  /** 自定义生成请求key的函数 */
   generateKey?: (config: AxiosRequestConfig) => string;
 }
 
@@ -63,15 +63,15 @@ export interface CancelConfig {
  * 请求重试配置
  */
 export interface RetryConfig {
-  /** 是否启用重试，默认false */
-  enabled: boolean;
-  /** 最大重试次数，默认3 */
+  /** 是否启用重试，默认 false */
+  enabled?: boolean;
+  /** 最大重试次数，默认 3 */
   maxRetries?: number;
-  /** 重试延迟（毫秒），默认100 */
+  /** 重试延迟（毫秒），默认 100ms */
   delay?: number;
-  /** 是否使用指数退避策略，默认false */
+  /** 是否使用指数退避策略，默认 false */
   exponentialBackoff?: boolean;
-  /** 判断哪些错误需要重试，默认所有网络错误都重试 */
+  /** 判断哪些错误需要重试，默认网络错误和5xx错误 */
   shouldRetry?: (error: any, retryCount: number) => boolean;
 }
 
@@ -97,12 +97,12 @@ export interface AxiosRequestInstanceConfig {
   axiosConfig?: AxiosRequestConfig;
   /** 全局Token管理配置 */
   tokenManager?: TokenManagerConfig;
-  /** 全局防重复提交配置 */
-  dedupe?: DedupeConfig;
-  /** 全局请求取消配置 */
-  cancel?: CancelConfig;
-  /** 全局请求重试配置 */
-  retry?: RetryConfig;
+  /** 全局防重复提交配置，支持简写：false 表示 { enabled: false } */
+  dedupe?: DedupeConfig | boolean;
+  /** 全局请求取消配置，支持简写：false 表示 { enabled: false } */
+  cancel?: CancelConfig | boolean;
+  /** 全局请求重试配置，支持简写：数字表示 { enabled: true, maxRetries: n } */
+  retry?: RetryConfig | boolean | number;
 }
 
 /**

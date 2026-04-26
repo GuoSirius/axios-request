@@ -1,9 +1,34 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { AxiosRequestInstanceConfig, AxiosRequestConfigExtended } from '../types';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
 import { RetryManager } from '../managers/RetryManager';
+
+/**
+ * 将简写配置转换为完整配置对象
+ */
+function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']) {
+  if (config === undefined) return undefined;
+  if (config === false) return { enabled: false };
+  if (config === true) return { enabled: true };
+  return config;
+}
+
+function normalizeCancelConfig(config: AxiosRequestInstanceConfig['cancel']) {
+  if (config === undefined) return undefined;
+  if (config === false) return { enabled: false };
+  if (config === true) return { enabled: true };
+  return config;
+}
+
+function normalizeRetryConfig(config: AxiosRequestInstanceConfig['retry']) {
+  if (config === undefined) return undefined;
+  if (config === false) return { enabled: false };
+  if (config === true) return { enabled: true };
+  if (typeof config === 'number') return { enabled: true, maxRetries: config };
+  return config;
+}
 
 /**
  * AxiosRequest - 基于axios的增强请求库
@@ -24,16 +49,19 @@ export class AxiosRequest {
       this.tokenManager = new TokenManager(config.tokenManager);
     }
 
-    if (config.dedupe) {
-      this.dedupeManager = new DedupeManager(config.dedupe);
+    const dedupeConfig = normalizeDedupeConfig(config.dedupe);
+    if (dedupeConfig) {
+      this.dedupeManager = new DedupeManager(dedupeConfig);
     }
 
-    if (config.cancel) {
-      this.cancelManager = new CancelManager(config.cancel);
+    const cancelConfig = normalizeCancelConfig(config.cancel);
+    if (cancelConfig) {
+      this.cancelManager = new CancelManager(cancelConfig);
     }
 
-    if (config.retry) {
-      this.retryManager = new RetryManager(config.retry);
+    const retryConfig = normalizeRetryConfig(config.retry);
+    if (retryConfig) {
+      this.retryManager = new RetryManager(retryConfig);
     }
 
     // 设置拦截器
