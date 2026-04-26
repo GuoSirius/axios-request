@@ -27,6 +27,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "validate": "npm run typecheck && npm run lint && npm run test",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -52,6 +54,8 @@
     "axios": ">=1.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^18.0.0",
+    "@commitlint/config-conventional": "^18.0.0",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-node-resolve": "^15.0.0",
     "@rollup/plugin-typescript": "^11.0.0",
@@ -60,11 +64,22 @@
     "@typescript-eslint/parser": "^6.0.0",
     "axios": "^1.6.0",
     "eslint": "^8.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0",
     "rollup": "^4.0.0",
     "@rollup/plugin-terser": "^0.4.0",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint --edit --config commitlint.config.cjs"
+    }
+  },
+  "lint-staged": {
+    "*.ts": ["npm run typecheck", "npm run lint", "vitest run"]
   },
   "dependencies": {}
 }

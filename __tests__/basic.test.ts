@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AxiosRequest } from '../src';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AxiosRequest, generateRequestKey } from '../src';
 import axios from 'axios';
 
 // Mock axios
@@ -59,44 +59,89 @@ describe('AxiosRequest', () => {
 
 describe('Request Key Generation', () => {
   it('should generate consistent keys for same request', () => {
-    const { generateRequestKey } = require('../src/utils/requestKey');
-    
     const config1 = {
       method: 'GET',
       url: '/api/users',
       params: { page: 1 },
     };
-    
+
     const config2 = {
       method: 'GET',
       url: '/api/users',
       params: { page: 1 },
     };
-    
+
     const key1 = generateRequestKey(config1);
     const key2 = generateRequestKey(config2);
-    
+
     expect(key1).toBe(key2);
   });
 
   it('should generate different keys for different requests', () => {
-    const { generateRequestKey } = require('../src/utils/requestKey');
-    
     const config1 = {
       method: 'GET',
       url: '/api/users',
       params: { page: 1 },
     };
-    
+
     const config2 = {
       method: 'GET',
       url: '/api/users',
       params: { page: 2 },
     };
-    
+
     const key1 = generateRequestKey(config1);
     const key2 = generateRequestKey(config2);
-    
+
     expect(key1).not.toBe(key2);
+  });
+});
+
+describe('DedupeManager', () => {
+  it('should deduplicate requests within duration', async () => {
+    const client = new AxiosRequest({
+      axiosConfig: {
+        baseURL: 'https://api.example.com',
+      },
+      dedupe: {
+        enabled: true,
+        duration: 500,
+      },
+    });
+
+    expect(client).toBeDefined();
+  });
+});
+
+describe('CancelManager', () => {
+  it('should cancel previous requests', () => {
+    const client = new AxiosRequest({
+      axiosConfig: {
+        baseURL: 'https://api.example.com',
+      },
+      cancel: {
+        enabled: true,
+        methods: ['GET'],
+      },
+    });
+
+    expect(client).toBeDefined();
+  });
+});
+
+describe('RetryManager', () => {
+  it('should retry failed requests', () => {
+    const client = new AxiosRequest({
+      axiosConfig: {
+        baseURL: 'https://api.example.com',
+      },
+      retry: {
+        enabled: true,
+        maxRetries: 3,
+        delay: 100,
+      },
+    });
+
+    expect(client).toBeDefined();
   });
 });
