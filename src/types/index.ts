@@ -1,4 +1,13 @@
-import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { AxiosRequestConfig } from 'axios';
+
+/**
+ * Content-Type 类型
+ * - json: application/json;charset=UTF-8（默认）
+ * - form: application/x-www-form-urlencoded
+ * - file: 不设置 Content-Type（让浏览器自动处理 multipart/form-data）
+ * - 自定义字符串: 直接作为 Content-Type
+ */
+export type ContentType = 'json' | 'form' | 'file' | string;
 
 /**
  * Token刷新函数的返回值
@@ -79,6 +88,14 @@ export interface RetryConfig {
  * AxiosRequest配置（扩展axios配置）
  */
 export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
+  /**
+   * 请求 Content-Type 设置
+   * - json: application/json;charset=UTF-8（默认）
+   * - form: application/x-www-form-urlencoded
+   * - file: 不设置 Content-Type（让浏览器自动处理 multipart/form-data）
+   * - 自定义字符串: 直接作为 Content-Type
+   */
+  contentType?: ContentType;
   /** Token管理配置 */
   _token?: TokenManagerConfig;
   /** 防重复提交配置 */

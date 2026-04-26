@@ -139,6 +139,31 @@ export class AxiosRequest {
       finalConfig.method = finalConfig.method.toUpperCase() as any;
     }
 
+    // 处理 contentType，设置对应的 Content-Type header
+    if (finalConfig.contentType) {
+      const contentType = finalConfig.contentType;
+      if (contentType === 'json') {
+        finalConfig.headers = {
+          ...finalConfig.headers,
+          'Content-Type': 'application/json;charset=UTF-8',
+        };
+      } else if (contentType === 'form') {
+        finalConfig.headers = {
+          ...finalConfig.headers,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        };
+      } else if (contentType === 'file') {
+        // file 类型不设置 Content-Type，让浏览器自动处理 multipart/form-data
+        delete finalConfig.headers?.['Content-Type'];
+      } else {
+        // 自定义字符串，直接作为 Content-Type
+        finalConfig.headers = {
+          ...finalConfig.headers,
+          'Content-Type': contentType,
+        };
+      }
+    }
+
     // 应用防重复提交
     if (this.dedupeManager && this.dedupeManager.shouldDedupe(finalConfig)) {
       return this.dedupeManager.dedupe(finalConfig, () => this.makeRequest(finalConfig));
