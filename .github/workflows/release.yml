@@ -3,11 +3,10 @@ name: Release
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
-  push:
     tags:
       - 'v*'
+  pull_request:
+    branches: [main]
 
 jobs:
   # PR 和 push main 时执行：类型检查、lint、测试
