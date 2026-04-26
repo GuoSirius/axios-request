@@ -1,3 +1,4 @@
+// axios-request - 基于 axios 的增强请求库
 // 导出核心类
 export { AxiosRequest } from './core/AxiosRequest';
 
