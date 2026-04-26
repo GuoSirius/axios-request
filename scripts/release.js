@@ -1,5 +1,5 @@
 /**
- * 一键发布脚本 - 自动完成验证、构建、版本更新、changelog、提交、推送、创建标签
+ * 一键发布脚本 - 自动完成 typecheck、验证、构建、版本更新、changelog、提交、推送、创建标签
  * 
  * 用法:
  *   node scripts/release.js              # 交互模式
@@ -99,12 +99,14 @@ function question(q) {
 const args = process.argv.slice(2);
 let newVersion = '';
 let commitMsg = '';
+let needTag = true;
 let interactive = true;
 
 if (args.length > 0) {
   interactive = false;
   newVersion = args[0];
   commitMsg = args[1] || `chore: release v${newVersion}`;
+  needTag = true; // 命令行模式默认打 tag
 }
 
 // 主流程
@@ -134,6 +136,15 @@ async function main() {
 
     if (!newVersion) newVersion = suggestVersion(currentVersion, versionType);
     commitMsg = (await question(`提交信息 [chore: release v${newVersion}]: `)) || `chore: release v${newVersion}`;
+
+    // 询问是否打 tag
+    const tagAnswer = (await question('是否打标签发布? [Y]: ')) || 'Y';
+    needTag = tagAnswer.toLowerCase() === 'y';
+
+    if (!needTag) {
+      log.warn('不发布，跳过');
+      process.exit(0);
+    }
   }
 
   // 验证版本号
@@ -149,28 +160,42 @@ async function main() {
     if (confirm.toLowerCase() !== 'y') { log.warn('已取消'); process.exit(0); }
   }
 
-  // Step 1: 验证
-  log.info('验证代码...');
-  exec('npm run validate');
+  // Step 1: TypeCheck
+  log.info('TypeCheck...');
+  exec('npm run typecheck');
+  log.success('TypeCheck 通过');
 
-  // Step 2: 构建
+  // Step 2: Lint
+  log.info('Lint...');
+  exec('npm run lint');
+  log.success('Lint 通过');
+
+  // Step 3: Test
+  log.info('运行测试...');
+  exec('npm run test');
+  log.success('测试通过');
+
+  // Step 4: 构建
   log.info('构建项目...');
   exec('npm run build');
+  log.success('构建成功');
 
-  // Step 3: 更新版本号
+  // Step 5: 更新版本号
   log.info('更新版本号...');
   updateVersion(newVersion);
 
-  // Step 4: 生成 Changelog
+  // Step 6: 生成 Changelog
   log.info('生成 Changelog...');
   exec('node scripts/changelog.js');
+  log.success('Changelog 生成完成');
 
-  // Step 5: 提交
+  // Step 7: 提交
   log.info('提交代码...');
   exec('git add -A');
   exec(`git commit -m "${commitMsg}"`);
+  log.success('提交完成');
 
-  // Step 6: 推送到远程仓库
+  // Step 8: 推送到远程仓库
   const branch = getCurrentBranch();
   log.info(`推送 ${branch}...`);
   exec(`git push origin ${branch}`);
@@ -179,7 +204,7 @@ async function main() {
     exec(`git push github ${branch}`);
   }
 
-  // Step 7: 创建并推送标签
+  // Step 9: 创建并推送标签
   const tag = `v${newVersion}`;
   log.info(`创建标签 ${tag}...`);
   exec(`git tag -a ${tag} -m "Release ${newVersion}"`);
