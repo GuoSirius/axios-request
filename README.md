@@ -824,10 +824,26 @@ const { AxiosRequest } = require('axios-request');
 ### 开发命令
 
 ```bash
-npm install          # 安装依赖
-npm run dev          # 开发模式
-npm run validate     # 验证（类型检查 + lint + 测试）
-npm run build        # 构建
+# 安装依赖
+npm install
+
+# 开发模式（监听文件变化）
+npm run dev
+
+# 类型检查
+npm run typecheck
+
+# 代码检查
+npm run lint
+
+# 运行测试
+npm run test
+
+# 验证（类型检查 + lint + 测试）
+npm run validate
+
+# 构建
+npm run build
 ```
 
 ### 一键发布
@@ -841,7 +857,7 @@ npm run publish -- 1.0.1
 npm run publish -- 1.0.1 "feat: 新增xxx功能"
 ```
 
-推送标签后，GitHub Actions 自动：安装依赖 → 测试 → 构建 → 发布npm
+推送标签后，GitHub Actions 自动：安装依赖 → 测试 → 构建 → 发布 npm
 
 ### GitHub 远程配置（可选）
 
@@ -862,4 +878,4 @@ SiriuSSupreme
 ## 仓库
 
 - Gitee: https://gitee.com/siriussupreme/axios-request
-- GitHub: https://github.com/your-username/axios-request
+- GitHub: https://github.com/GuoSirius/axios-request
