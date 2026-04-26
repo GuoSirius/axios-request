@@ -1,0 +1,236 @@
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { AxiosRequestInstanceConfig, AxiosRequestConfigExtended } from '../types';
+import { TokenManager } from '../managers/TokenManager';
+import { DedupeManager } from '../managers/DedupeManager';
+import { CancelManager } from '../managers/CancelManager';
+import { RetryManager } from '../managers/RetryManager';
+
+/**
+ * AxiosRequest - 基于axios的增强请求库
+ */
+export class AxiosRequest {
+  private instance: AxiosInstance;
+  private tokenManager?: TokenManager;
+  private dedupeManager?: DedupeManager;
+  private cancelManager?: CancelManager;
+  private retryManager?: RetryManager;
+
+  constructor(config: AxiosRequestInstanceConfig = {}) {
+    // 创建axios实例
+    this.instance = axios.create(config.axiosConfig);
+
+    // 初始化各管理器
+    if (config.tokenManager) {
+      this.tokenManager = new TokenManager(config.tokenManager);
+    }
+
+    if (config.dedupe) {
+      this.dedupeManager = new DedupeManager(config.dedupe);
+    }
+
+    if (config.cancel) {
+      this.cancelManager = new CancelManager(config.cancel);
+    }
+
+    if (config.retry) {
+      this.retryManager = new RetryManager(config.retry);
+    }
+
+    // 设置拦截器
+    this.setupInterceptors();
+  }
+
+  /**
+   * 设置拦截器
+   */
+  private setupInterceptors(): void {
+    // 请求拦截器
+    this.instance.interceptors.request.use(
+      (config) => {
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
+
+    // 响应拦截器
+    this.instance.interceptors.response.use(
+      (response) => {
+        return response;
+      },
+      async (error) => {
+        return this.handleError(error);
+      }
+    );
+  }
+
+  /**
+   * 处理请求错误
+   * @param error axios错误对象
+   * @returns Promise
+   */
+  private async handleError(error: any): Promise<any> {
+    const config = error.config as AxiosRequestConfigExtended;
+
+    // 检查是否是token过期
+    if (this.tokenManager && this.tokenManager.isTokenExpired(error)) {
+      try {
+        return await this.tokenManager.handleExpiredToken(error, config, this.instance);
+      } catch (refreshError) {
+        return Promise.reject(refreshError);
+      }
+    }
+
+    // 检查是否需要重试
+    if (this.retryManager && this.retryManager.shouldRetry(config)) {
+      const retryCount = (config as any)._retryCount || 0;
+
+      if (this.retryManager.shouldRetryOnError(error, retryCount)) {
+        try {
+          return await this.retryManager.retry(config, (c) => this.instance(c), retryCount);
+        } catch (retryError) {
+          return Promise.reject(retryError);
+        }
+      }
+    }
+
+    return Promise.reject(error);
+  }
+
+  /**
+   * 发起请求
+   * @param config 请求配置
+   * @returns Promise
+   */
+  async request<T = any>(config: AxiosRequestConfigExtended): Promise<T> {
+    let finalConfig = { ...config };
+
+    // 应用防重复提交
+    if (this.dedupeManager && this.dedupeManager.shouldDedupe(finalConfig)) {
+      return this.dedupeManager.dedupe(finalConfig, () => this.makeRequest(finalConfig));
+    }
+
+    // 应用请求取消
+    if (this.cancelManager && this.cancelManager.shouldCancel(finalConfig)) {
+      finalConfig = this.cancelManager.setupCancel(finalConfig);
+    }
+
+    // 发起请求
+    return this.makeRequest(finalConfig);
+  }
+
+  /**
+   * 实际发起请求
+   * @param config 请求配置
+   * @returns Promise
+   */
+  private async makeRequest<T = any>(config: AxiosRequestConfig): Promise<T> {
+    const response = await this.instance.request<T>(config);
+    return response.data;
+  }
+
+  /**
+   * GET请求
+   */
+  get<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'GET',
+    });
+  }
+
+  /**
+   * POST请求
+   */
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'POST',
+      data,
+    });
+  }
+
+  /**
+   * PUT请求
+   */
+  put<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'PUT',
+      data,
+    });
+  }
+
+  /**
+   * PATCH请求
+   */
+  patch<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'PATCH',
+      data,
+    });
+  }
+
+  /**
+   * DELETE请求
+   */
+  delete<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'DELETE',
+    });
+  }
+
+  /**
+   * HEAD请求
+   */
+  head<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'HEAD',
+    });
+  }
+
+  /**
+   * OPTIONS请求
+   */
+  options<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
+    return this.request<T>({
+      ...config,
+      url,
+      method: 'OPTIONS',
+    });
+  }
+
+  /**
+   * 获取axios实例（用于高级配置）
+   */
+  getInstance(): AxiosInstance {
+    return this.instance;
+  }
+
+  /**
+   * 更新token管理器配置
+   */
+  setTokenManager(config: AxiosRequestInstanceConfig['tokenManager']): void {
+    if (config) {
+      this.tokenManager = new TokenManager(config);
+    }
+  }
+
+  /**
+   * 清除所有待处理的请求
+   */
+  clear(): void {
+    this.dedupeManager?.clear();
+    this.cancelManager?.clear();
+  }
+}
