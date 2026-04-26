@@ -11,6 +11,7 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import * as readline from 'readline';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.join(__dirname, '..');
@@ -83,6 +84,17 @@ function updateVersion(newVersion) {
   log.success(`版本更新: ${pkg.version}`);
 }
 
+// 交互式提问
+function question(q) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(q, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
 // 解析命令行参数
 const args = process.argv.slice(2);
 let newVersion = '';
@@ -103,10 +115,6 @@ async function main() {
 
   // 交互模式
   if (interactive) {
-    const readline = await import('readline');
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const question = (q) => new Promise(resolve => rl.question(q, resolve));
-
     const currentVersion = getCurrentVersion();
     log.info(`当前版本: ${currentVersion}`);
 
@@ -126,7 +134,6 @@ async function main() {
 
     if (!newVersion) newVersion = suggestVersion(currentVersion, versionType);
     commitMsg = (await question(`提交信息 [chore: release v${newVersion}]: `)) || `chore: release v${newVersion}`;
-    rl.close();
   }
 
   // 验证版本号
@@ -138,10 +145,7 @@ async function main() {
   console.log(`\n新版本: ${newVersion}  |  ${commitMsg}\n`);
 
   if (interactive) {
-    const readline = await import('readline');
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const confirm = (await question('确认发布? [Y]: ')) || 'Y';
-    rl.close();
     if (confirm.toLowerCase() !== 'y') { log.warn('已取消'); process.exit(0); }
   }
 
