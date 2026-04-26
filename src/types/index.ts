@@ -43,6 +43,11 @@ export interface TokenManagerConfig {
 }
 
 /**
+ * 生成请求 key 的函数类型
+ */
+export type GenerateKeyFunction = (config: AxiosRequestConfig) => string;
+
+/**
  * 防重复提交配置
  */
 export interface DedupeConfig {
@@ -52,8 +57,14 @@ export interface DedupeConfig {
   duration?: number;
   /** 需要防重复提交的方法，默认 ['POST', 'PUT', 'PATCH', 'DELETE'] */
   methods?: string[];
-  /** 自定义生成请求key的函数 */
-  generateKey?: (config: AxiosRequestConfig) => string;
+  /**
+   * 自定义生成请求 key 的方式
+   * - 函数：直接使用该函数
+   * - 字符串：使用该字符串作为分隔符，从 config 中提取对应字段拼接
+   *   例如：'method:url'、'method:url:data.id'
+   *   特殊值：'only-url' 表示只用 url 作为 key
+   */
+  generateKey?: GenerateKeyFunction | string;
 }
 
 /**
@@ -64,8 +75,12 @@ export interface CancelConfig {
   enabled?: boolean;
   /** 需要取消请求的方法，默认 ['GET'] */
   methods?: string[];
-  /** 自定义生成请求key的函数 */
-  generateKey?: (config: AxiosRequestConfig) => string;
+  /**
+   * 自定义生成请求 key 的方式
+   * - 函数：直接使用该函数
+   * - 字符串：使用该字符串作为分隔符，从 config 中提取对应字段拼接
+   */
+  generateKey?: GenerateKeyFunction | string;
 }
 
 /**
