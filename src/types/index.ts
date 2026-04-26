@@ -100,6 +100,33 @@ export interface RetryConfig {
 }
 
 /**
+ * 防重复提交简写类型
+ * - boolean: 启用/禁用
+ * - string: 直接作为 generateKey
+ * - function: 直接作为 generateKey
+ * - object: 完整配置对象
+ */
+export type DedupeShortcut = DedupeConfig | boolean | GenerateKeyFunction | string;
+
+/**
+ * 请求取消简写类型
+ * - boolean: 启用/禁用
+ * - string: 直接作为 generateKey
+ * - function: 直接作为 generateKey
+ * - object: 完整配置对象
+ */
+export type CancelShortcut = CancelConfig | boolean | GenerateKeyFunction | string;
+
+/**
+ * 请求重试简写类型
+ * - boolean: 启用/禁用
+ * - number: 启用并设置 maxRetries
+ * - function: 直接作为 shouldRetry
+ * - object: 完整配置对象
+ */
+export type RetryShortcut = RetryConfig | boolean | number | ((error: any, retryCount: number) => boolean);
+
+/**
  * AxiosRequest配置（扩展axios配置）
  */
 export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
@@ -112,13 +139,13 @@ export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
    */
   contentType?: ContentType;
   /** Token管理配置 */
-  _token?: TokenManagerConfig;
-  /** 防重复提交配置 */
-  _dedupe?: DedupeConfig | boolean;
-  /** 请求取消配置 */
-  _cancel?: CancelConfig | boolean;
-  /** 请求重试配置 */
-  _retry?: RetryConfig | boolean | number;
+  _token?: TokenManagerConfig | boolean;
+  /** 防重复提交配置，支持简写 */
+  _dedupe?: DedupeShortcut;
+  /** 请求取消配置，支持简写 */
+  _cancel?: CancelShortcut;
+  /** 请求重试配置，支持简写 */
+  _retry?: RetryShortcut;
 }
 
 /**
@@ -129,12 +156,12 @@ export interface AxiosRequestInstanceConfig {
   axiosConfig?: AxiosRequestConfig;
   /** 全局Token管理配置 */
   tokenManager?: TokenManagerConfig;
-  /** 全局防重复提交配置，支持简写：false 表示 { enabled: false } */
-  dedupe?: DedupeConfig | boolean;
-  /** 全局请求取消配置，支持简写：false 表示 { enabled: false } */
-  cancel?: CancelConfig | boolean;
-  /** 全局请求重试配置，支持简写：数字表示 { enabled: true, maxRetries: n } */
-  retry?: RetryConfig | boolean | number;
+  /** 全局防重复提交配置，支持简写 */
+  dedupe?: DedupeShortcut;
+  /** 全局请求取消配置，支持简写 */
+  cancel?: CancelShortcut;
+  /** 全局请求重试配置，支持简写 */
+  retry?: RetryShortcut;
 }
 
 /**

@@ -1,5 +1,12 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { AxiosRequestInstanceConfig, AxiosRequestConfigExtended } from '../types';
+import {
+  AxiosRequestInstanceConfig,
+  AxiosRequestConfigExtended,
+  DedupeConfig,
+  CancelConfig,
+  RetryConfig,
+  GenerateKeyFunction,
+} from '../types';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
@@ -7,27 +14,59 @@ import { RetryManager } from '../managers/RetryManager';
 
 /**
  * 将简写配置转换为完整配置对象
+ * 支持：
+ * - boolean: true/false
+ * - string: 直接作为 generateKey
+ * - function: 直接作为 generateKey
+ * - object: 完整配置对象
  */
-function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']) {
+function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']): DedupeConfig | undefined {
   if (config === undefined) return undefined;
   if (config === false) return { enabled: false };
   if (config === true) return { enabled: true };
-  return config;
+  // 字符串：直接作为 generateKey
+  if (typeof config === 'string') return { enabled: true, generateKey: config as string };
+  // 函数：直接作为 generateKey
+  if (typeof config === 'function') return { enabled: true, generateKey: config as GenerateKeyFunction };
+  return config as DedupeConfig;
 }
 
-function normalizeCancelConfig(config: AxiosRequestInstanceConfig['cancel']) {
+/**
+ * 规范化取消配置
+ * 支持：
+ * - boolean: true/false
+ * - string: 直接作为 generateKey
+ * - function: 直接作为 generateKey
+ * - object: 完整配置对象
+ */
+function normalizeCancelConfig(config: AxiosRequestInstanceConfig['cancel']): CancelConfig | undefined {
   if (config === undefined) return undefined;
   if (config === false) return { enabled: false };
   if (config === true) return { enabled: true };
-  return config;
+  // 字符串：直接作为 generateKey
+  if (typeof config === 'string') return { enabled: true, generateKey: config as string };
+  // 函数：直接作为 generateKey
+  if (typeof config === 'function') return { enabled: true, generateKey: config as GenerateKeyFunction };
+  return config as CancelConfig;
 }
 
-function normalizeRetryConfig(config: AxiosRequestInstanceConfig['retry']) {
+/**
+ * 规范化重试配置
+ * 支持：
+ * - boolean: true/false
+ * - number: enabled + maxRetries
+ * - function: 直接作为 shouldRetry
+ * - object: 完整配置对象
+ */
+function normalizeRetryConfig(config: AxiosRequestInstanceConfig['retry']): RetryConfig | undefined {
   if (config === undefined) return undefined;
   if (config === false) return { enabled: false };
   if (config === true) return { enabled: true };
+  // 数字：enabled + maxRetries
   if (typeof config === 'number') return { enabled: true, maxRetries: config };
-  return config;
+  // 函数：直接作为 shouldRetry
+  if (typeof config === 'function') return { enabled: true, shouldRetry: config };
+  return config as RetryConfig;
 }
 
 /**

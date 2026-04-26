@@ -158,6 +158,33 @@ describe('DedupeManager - 防重复提交', () => {
     });
     expect(client).toBeDefined();
   });
+
+  // ========== 新增简写方式测试 ==========
+
+  it('字符串简写 - 直接作为 generateKey', () => {
+    // 字符串直接作为 generateKey，启用防重复提交
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      dedupe: 'method:url:data.id',
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('only-url 字符串简写', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      dedupe: 'only-url',
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('函数简写 - 直接作为 generateKey', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      dedupe: (config) => `${config.method}:${config.url}`,
+    });
+    expect(client).toBeDefined();
+  });
 });
 
 // ============================================
@@ -198,6 +225,24 @@ describe('CancelManager - 请求取消', () => {
         enabled: true,
         generateKey: 'only-url',
       },
+    });
+    expect(client).toBeDefined();
+  });
+
+  // ========== 新增简写方式测试 ==========
+
+  it('字符串简写 - 直接作为 generateKey', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      cancel: 'method:url',
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('函数简写 - 直接作为 generateKey', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      cancel: (config) => `${config.url}:${config.params?.q}`,
     });
     expect(client).toBeDefined();
   });
@@ -256,6 +301,30 @@ describe('RetryManager - 失败重试', () => {
       retry: false,
     });
     expect(client).toBeDefined();
+  });
+
+  // ========== 新增简写方式测试 ==========
+
+  it('函数简写 - 直接作为 shouldRetry', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      retry: (error, retryCount) => {
+        return retryCount < 3 && (!error.response || error.response.status >= 500);
+      },
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('单个请求 - 函数简写 shouldRetry', () => {
+    const config = {
+      _retry: (error: any, count: number) => count < 5,
+    };
+    expect(typeof config._retry).toBe('function');
+  });
+
+  it('单个请求 - 字符串简写 generateKey', () => {
+    const config = { _dedupe: 'only-url' };
+    expect(config._dedupe).toBe('only-url');
   });
 });
 
