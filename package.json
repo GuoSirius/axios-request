@@ -27,14 +27,8 @@
     "dev": "rollup -c --watch",
     "build": "rollup -c",
     "test": "vitest run",
-    "test:watch": "vitest",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit",
     "validate": "npm run typecheck && npm run lint && npm run test",
-    "prepublishOnly": "npm run build",
-    "release:version": "node scripts/release.js --version",
-    "release:changelog": "node scripts/changelog.js",
-    "release": "npm run validate && npm run build",
     "publish": "node scripts/release.js"
   },
   "keywords": [

@@ -825,29 +825,29 @@ const { AxiosRequest } = require('axios-request');
 
 ```bash
 npm install          # 安装依赖
-npm run dev          # 开发模式（监听文件变化）
+npm run dev          # 开发模式
 npm run validate     # 验证（类型检查 + lint + 测试）
 npm run build        # 构建
-npm run publish      # 一键发布（交互式）
-npm run publish -- 1.0.0  # 指定版本发布
 ```
 
-### 发布流程
+### 一键发布
 
 ```bash
-# 一键发布（自动完成：验证 → 构建 → 更新版本 → 生成changelog → 提交 → 推送 → 打标签）
+# 交互模式（自动完成：验证 → 构建 → 更新版本 → 生成changelog → 提交 → 推送 → 打标签）
 npm run publish
 
-# GitHub Actions 自动完成：安装依赖 → 测试 → 构建 → 发布npm
+# 指定版本发布
+npm run publish -- 1.0.1
+npm run publish -- 1.0.1 "feat: 新增xxx功能"
 ```
+
+推送标签后，GitHub Actions 自动：安装依赖 → 测试 → 构建 → 发布npm
 
 ### GitHub 远程配置（可选）
 
 ```bash
 git remote add github https://github.com/your-username/axios-request.git
 ```
-
-推送标签后，GitHub Actions 会自动构建并发布到 npm。
 
 ---
 

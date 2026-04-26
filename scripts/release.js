@@ -1,14 +1,10 @@
 /**
- * 一键发布脚本 - 跨平台版本 (Windows/Mac/Linux)
+ * 一键发布脚本 - 自动完成验证、构建、版本更新、changelog、提交、推送、创建标签
  * 
  * 用法:
  *   node scripts/release.js              # 交互模式
  *   node scripts/release.js 1.0.0        # 指定版本
  *   node scripts/release.js 1.0.0 "feat: 新功能"
- * 
- * 或通过 npm:
- *   npm run publish              # 交互模式
- *   npm run publish -- 1.0.0    # 指定版本
  */
 
 import { execSync } from 'child_process';
@@ -36,15 +32,11 @@ const log = {
 };
 
 // 执行命令
-function exec(command, options = {}) {
+function exec(command) {
   log.info(`执行: ${command}`);
   try {
-    return execSync(command, {
-      cwd: projectDir,
-      stdio: 'inherit',
-      ...options
-    });
-  } catch (error) {
+    return execSync(command, { cwd: projectDir, stdio: 'inherit' });
+  } catch {
     log.error(`命令执行失败: ${command}`);
     process.exit(1);
   }
@@ -82,6 +74,15 @@ function suggestVersion(current, type) {
   }
 }
 
+// 更新 package.json 版本号
+function updateVersion(newVersion) {
+  const pkgPath = path.join(projectDir, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+  pkg.version = newVersion;
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  log.success(`版本更新: ${pkg.version}`);
+}
+
 // 解析命令行参数
 const args = process.argv.slice(2);
 let newVersion = '';
@@ -97,166 +98,97 @@ if (args.length > 0) {
 // 主流程
 async function main() {
   console.log('');
-  console.log(`${colors.blue}🚀 axios-request 一键发布工具${colors.reset}`);
+  console.log(`${colors.blue}🚀 axios-request 一键发布${colors.reset}`);
   console.log('========================================');
-  console.log('');
 
   // 交互模式
   if (interactive) {
     const readline = await import('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const question = (q) => new Promise(resolve => rl.question(q, resolve));
 
     const currentVersion = getCurrentVersion();
     log.info(`当前版本: ${currentVersion}`);
 
-    console.log('');
-    console.log('请选择版本类型:');
     console.log('  1) Patch - Bug修复');
     console.log('  2) Minor - 新功能');
     console.log('  3) Major - 破坏性更新');
     console.log('  4) 自定义版本');
-    console.log('');
 
-    const choice = (await question('请输入选项 [1]: ')) || '1';
+    const choice = (await question('请选择 [1]: ')) || '1';
     let versionType = 'patch';
 
     switch (choice.trim()) {
       case '2': versionType = 'minor'; break;
       case '3': versionType = 'major'; break;
-      case '4':
-        newVersion = await question('请输入版本号: ');
-        break;
-      default: versionType = 'patch';
+      case '4': newVersion = await question('版本号: '); break;
     }
 
-    if (!newVersion) {
-      newVersion = suggestVersion(currentVersion, versionType);
-    }
-
+    if (!newVersion) newVersion = suggestVersion(currentVersion, versionType);
     commitMsg = (await question(`提交信息 [chore: release v${newVersion}]: `)) || `chore: release v${newVersion}`;
     rl.close();
   }
 
-  // 验证版本号格式
-  const semverRegex = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
-  if (!semverRegex.test(newVersion)) {
-    log.error('版本号格式不正确，请使用语义化版本号 (如: 1.0.0, 1.0.0-beta.1)');
+  // 验证版本号
+  if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(newVersion)) {
+    log.error('版本号格式不正确');
     process.exit(1);
   }
 
-  console.log('');
-  console.log('========================================');
-  log.info('发布配置');
-  console.log('========================================');
-  console.log(`新版本: ${newVersion}`);
-  console.log(`提交信息: ${commitMsg}`);
-  console.log('');
+  console.log(`\n新版本: ${newVersion}  |  ${commitMsg}\n`);
 
   if (interactive) {
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const confirm = (await question('确认发布? [Y/n]: ')) || 'Y';
+    const confirm = (await question('确认发布? [Y]: ')) || 'Y';
     rl.close();
-
-    if (confirm.toLowerCase() !== 'y') {
-      log.warn('已取消发布');
-      process.exit(0);
-    }
+    if (confirm.toLowerCase() !== 'y') { log.warn('已取消'); process.exit(0); }
   }
 
   // Step 1: 验证
-  console.log('');
-  console.log('========================================');
-  log.info('Step 1: 验证代码');
-  console.log('========================================');
+  log.info('验证代码...');
   exec('npm run validate');
-  log.success('代码验证通过');
 
   // Step 2: 构建
-  console.log('');
-  console.log('========================================');
-  log.info('Step 2: 构建项目');
-  console.log('========================================');
+  log.info('构建项目...');
   exec('npm run build');
-  log.success('构建成功');
 
   // Step 3: 更新版本号
-  console.log('');
-  console.log('========================================');
-  log.info('Step 3: 更新版本号');
-  console.log('========================================');
-  exec(`node scripts/release.js --version ${newVersion}`);
-  log.success('版本更新完成');
+  log.info('更新版本号...');
+  updateVersion(newVersion);
 
   // Step 4: 生成 Changelog
-  console.log('');
-  console.log('========================================');
-  log.info('Step 4: 生成 Changelog');
-  console.log('========================================');
+  log.info('生成 Changelog...');
   exec('node scripts/changelog.js');
-  log.success('Changelog 生成完成');
 
   // Step 5: 提交
-  console.log('');
-  console.log('========================================');
-  log.info('Step 5: 提交更改');
-  console.log('========================================');
+  log.info('提交代码...');
   exec('git add -A');
   exec(`git commit -m "${commitMsg}"`);
-  log.success('提交完成');
 
-  // Step 6: 推送
-  console.log('');
-  console.log('========================================');
-  log.info('Step 6: 推送到远程仓库');
-  console.log('========================================');
+  // Step 6: 推送到远程仓库
   const branch = getCurrentBranch();
-
-  log.info('推送到 Gitee...');
+  log.info(`推送 ${branch}...`);
   exec(`git push origin ${branch}`);
 
   if (remoteExists('github')) {
-    log.info('推送到 GitHub...');
     exec(`git push github ${branch}`);
-  } else {
-    log.warn('GitHub 远程仓库未配置，跳过');
   }
-  log.success('推送完成');
 
-  // Step 7: 打标签
-  console.log('');
-  console.log('========================================');
-  log.info('Step 7: 创建并推送标签');
-  console.log('========================================');
+  // Step 7: 创建并推送标签
   const tag = `v${newVersion}`;
+  log.info(`创建标签 ${tag}...`);
   exec(`git tag -a ${tag} -m "Release ${newVersion}"`);
   exec(`git push origin ${tag}`);
 
   if (remoteExists('github')) {
     exec(`git push github ${tag}`);
   }
-  log.success(`标签 ${tag} 已推送`);
 
-  // 完成
-  console.log('');
-  console.log('========================================');
+  console.log('\n========================================');
   log.success('发布完成！');
   console.log('========================================');
-  console.log('');
-  log.info('GitHub Actions 将自动执行以下操作:');
-  console.log('  - 安装依赖');
-  console.log('  - 运行测试');
-  console.log('  - 构建项目');
-  console.log('  - 发布到 npm');
-  console.log('');
+  console.log('\nGitHub Actions 将自动: 安装依赖 → 测试 → 构建 → 发布npm\n');
 }
 
-main().catch(err => {
-  log.error(`发布失败: ${err.message}`);
-  process.exit(1);
-});
+main().catch(err => log.error(`失败: ${err.message}`));
