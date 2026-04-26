@@ -106,6 +106,11 @@ export class AxiosRequest {
   async request<T = any>(config: AxiosRequestConfigExtended): Promise<T> {
     let finalConfig = { ...config };
 
+    // 统一将method转为大写，避免用户随意写（如 poSt、Get等）
+    if (finalConfig.method && typeof finalConfig.method === 'string') {
+      finalConfig.method = finalConfig.method.toUpperCase() as any;
+    }
+
     // 应用防重复提交
     if (this.dedupeManager && this.dedupeManager.shouldDedupe(finalConfig)) {
       return this.dedupeManager.dedupe(finalConfig, () => this.makeRequest(finalConfig));

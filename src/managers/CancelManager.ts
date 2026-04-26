@@ -12,7 +12,7 @@ export class CancelManager {
   constructor(config: CancelConfig) {
     this.config = {
       ...config,
-      enabled: config.enabled ?? false,
+      enabled: config.enabled ?? true,
       methods: config.methods ?? ['GET'],
       generateKey: config.generateKey || generateRequestKey,
     };

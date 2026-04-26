@@ -12,7 +12,7 @@ export class DedupeManager {
   constructor(config: DedupeConfig) {
     this.config = {
       ...config,
-      enabled: config.enabled ?? false,
+      enabled: config.enabled ?? true,
       duration: config.duration ?? 1000,
       methods: config.methods ?? ['POST', 'PUT', 'PATCH', 'DELETE'],
       generateKey: config.generateKey || generateRequestKey,
