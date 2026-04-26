@@ -40,6 +40,17 @@ export interface TokenManagerConfig {
   getRefreshToken?: () => string | null;
   /** token刷新失败的回调（可选） */
   onRefreshFailed?: (reason: TokenRefreshFailureReason, error: any) => void | Promise<void>;
+  /**
+   * 自定义设置 token 的方式（可选）
+   * 默认：config.headers.Authorization = `Bearer ${token}`
+   *
+   * 示例：
+   * - (config, token) => { config.headers['X-Token'] = token }
+   * - (config, token) => { config.headers.Authorization = token }
+   * - (config, token) => { config.headers.Authorization = `token ${token}` }
+   * - (config, token) => { config.headers['X-Access-Token'] = `Bearer ${token}` }
+   */
+  setAuthorization?: (config: AxiosRequestConfig, token: string) => void;
 }
 
 /**
@@ -104,18 +115,20 @@ export interface RetryConfig {
  * - boolean: 启用/禁用
  * - string: 直接作为 generateKey
  * - function: 直接作为 generateKey
+ * - string[]: 直接作为 methods（自动转大写）
  * - object: 完整配置对象
  */
-export type DedupeShortcut = DedupeConfig | boolean | GenerateKeyFunction | string;
+export type DedupeShortcut = DedupeConfig | boolean | GenerateKeyFunction | string | string[];
 
 /**
  * 请求取消简写类型
  * - boolean: 启用/禁用
  * - string: 直接作为 generateKey
  * - function: 直接作为 generateKey
+ * - string[]: 直接作为 methods（自动转大写）
  * - object: 完整配置对象
  */
-export type CancelShortcut = CancelConfig | boolean | GenerateKeyFunction | string;
+export type CancelShortcut = CancelConfig | boolean | GenerateKeyFunction | string | string[];
 
 /**
  * 请求重试简写类型

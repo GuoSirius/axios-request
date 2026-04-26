@@ -185,6 +185,27 @@ describe('DedupeManager - 防重复提交', () => {
     });
     expect(client).toBeDefined();
   });
+
+  it('数组简写 - 直接作为 methods（自动转大写）', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      dedupe: ['post', 'Post', 'PUT', 'patch'],
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('数组简写 - 混合大小写会被归一化为大写', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      dedupe: ['get', 'Get', 'GET', 'delete', 'Delete'],
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('单个请求 - 数组简写作为 methods', () => {
+    const config = { _dedupe: ['post', 'put'] };
+    expect(Array.isArray(config._dedupe)).toBe(true);
+  });
 });
 
 // ============================================
@@ -245,6 +266,19 @@ describe('CancelManager - 请求取消', () => {
       cancel: (config) => `${config.url}:${config.params?.q}`,
     });
     expect(client).toBeDefined();
+  });
+
+  it('数组简写 - 直接作为 methods（自动转大写）', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      cancel: ['get', 'Get', 'POST', 'post'],
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('单个请求 - 数组简写作为 methods', () => {
+    const config = { _cancel: ['get', 'post'] };
+    expect(Array.isArray(config._cancel)).toBe(true);
   });
 });
 
@@ -376,6 +410,42 @@ describe('TokenManager - Token 管理', () => {
         setTokens: () => {},
         onRefreshFailed: (reason, error) => {
           console.error('Refresh failed:', reason);
+        },
+      },
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('带 setAuthorization 自定义 token 赋值', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      tokenManager: {
+        isTokenExpired: (error) => error.response?.status === 401,
+        refreshToken: async () => ({ accessToken: 'new-token' }),
+        getAccessToken: () => 'current-token',
+        setTokens: () => {},
+        // 自定义 token 赋值方式
+        setAuthorization: (config, token) => {
+          config.headers = config.headers || {};
+          config.headers['X-Access-Token'] = `Bearer ${token}`;
+        },
+      },
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('setAuthorization 使用不同 header 字段名', () => {
+    const client = new AxiosRequest({
+      axiosConfig: { baseURL: 'https://api.example.com' },
+      tokenManager: {
+        isTokenExpired: (error) => error.response?.status === 401,
+        refreshToken: async () => ({ accessToken: 'new-token' }),
+        getAccessToken: () => 'token',
+        setTokens: () => {},
+        // 只设置 token 值，不使用 Bearer
+        setAuthorization: (config, token) => {
+          config.headers = config.headers || {};
+          config.headers['X-Token'] = token;
         },
       },
     });

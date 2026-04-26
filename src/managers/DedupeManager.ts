@@ -11,12 +11,12 @@ export class DedupeManager {
 
   constructor(config: DedupeConfig = {}) {
     const defaultMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-    // 标准化配置
+    // 标准化配置（methods 统一转为大写）
     this.config = {
       ...config,
       enabled: config.enabled ?? true,
       duration: config.duration ?? 1000,
-      methods: config.methods ?? defaultMethods,
+      methods: (config.methods ?? defaultMethods).map((m) => String(m).toUpperCase()),
       generateKey: normalizeGenerateKey(config.generateKey),
     } as DedupeConfig & { generateKey: GenerateKeyFunction };
   }

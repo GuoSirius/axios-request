@@ -18,12 +18,15 @@ import { RetryManager } from '../managers/RetryManager';
  * - boolean: true/false
  * - string: 直接作为 generateKey
  * - function: 直接作为 generateKey
+ * - array: 直接作为 methods（自动转大写）
  * - object: 完整配置对象
  */
 function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']): DedupeConfig | undefined {
   if (config === undefined) return undefined;
   if (config === false) return { enabled: false };
   if (config === true) return { enabled: true };
+  // 数组：直接作为 methods（自动转大写）
+  if (Array.isArray(config)) return { enabled: true, methods: config.map((m) => String(m).toUpperCase()) };
   // 字符串：直接作为 generateKey
   if (typeof config === 'string') return { enabled: true, generateKey: config as string };
   // 函数：直接作为 generateKey
@@ -37,12 +40,15 @@ function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']): De
  * - boolean: true/false
  * - string: 直接作为 generateKey
  * - function: 直接作为 generateKey
+ * - array: 直接作为 methods（自动转大写）
  * - object: 完整配置对象
  */
 function normalizeCancelConfig(config: AxiosRequestInstanceConfig['cancel']): CancelConfig | undefined {
   if (config === undefined) return undefined;
   if (config === false) return { enabled: false };
   if (config === true) return { enabled: true };
+  // 数组：直接作为 methods（自动转大写）
+  if (Array.isArray(config)) return { enabled: true, methods: config.map((m) => String(m).toUpperCase()) };
   // 字符串：直接作为 generateKey
   if (typeof config === 'string') return { enabled: true, generateKey: config as string };
   // 函数：直接作为 generateKey

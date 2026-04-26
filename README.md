@@ -160,6 +160,13 @@ const client = new AxiosRequest({
       console.error('Token 刷新失败:', reason);
       window.location.href = '/login';
     },
+
+    // 【可选】自定义 token 赋值方式
+    // 默认：Authorization: Bearer {token}
+    // 可以自定义 header 字段名或赋值格式
+    setAuthorization: (config, token) => {
+      config.headers['X-Access-Token'] = `Bearer ${token}`;
+    },
   },
 });
 ```
@@ -183,6 +190,34 @@ await client.get('/public/news', {
 // 或
 await client.get('/public/news', {
   _token: { enabled: false },
+});
+```
+
+#### 自定义 Token 赋值方式
+
+默认情况下，token 会以 `Authorization: Bearer {token}` 的形式添加到请求头中。如果你的 API 使用其他格式，可以自定义：
+
+```typescript
+const client = new AxiosRequest({
+  tokenManager: {
+    // ...其他配置
+
+    // 自定义 header 字段名
+    setAuthorization: (config, token) => {
+      config.headers['X-Token'] = token;
+    },
+
+    // 使用其他赋值格式
+    setAuthorization: (config, token) => {
+      config.headers['Authorization'] = `token ${token}`;
+    },
+
+    // 同时设置多个 header
+    setAuthorization: (config, token) => {
+      config.headers['X-Access-Token'] = token;
+      config.headers['X-Token-Type'] = 'Bearer';
+    },
+  },
 });
 ```
 
@@ -252,6 +287,10 @@ dedupe: {
   enabled: true,
   duration: 2000,
 }
+
+// 数组简写 - 直接作为 methods（自动转大写）
+dedupe: ['post', 'put', 'patch']           // 自动转为 { enabled: true, methods: ['POST', 'PUT', 'PATCH'] }
+dedupe: ['get', 'Get', 'GET']              // 混合大小写会被归一化为大写
 ```
 
 #### 单个请求级别配置
@@ -328,6 +367,19 @@ const client = new AxiosRequest({
 await client.get('/static/data', {
   _cancel: false,  // 不取消上一次请求
 });
+```
+
+#### 简写方式
+
+```typescript
+// 禁用
+cancel: false
+
+// 启用（使用默认配置）
+cancel: true
+
+// 数组简写 - 直接作为 methods（自动转大写）
+cancel: ['get', 'Get', 'POST']              // 自动转为 { enabled: true, methods: ['GET', 'GET', 'POST'] }
 ```
 
 ---
@@ -533,12 +585,15 @@ const entries = flattenFormData(formData);
 | `dedupe` | `false` | 禁用防重复提交 |
 | `dedupe` | `true` | 启用，使用默认配置 |
 | `dedupe` | `{ duration: 2000 }` | 只需改一个参数 |
+| `dedupe` | `['post', 'put']` | 数组直接作为 methods（自动转大写）|
 | `cancel` | `false` | 禁用请求取消 |
 | `cancel` | `true` | 启用，使用默认配置 |
+| `cancel` | `['get', 'post']` | 数组直接作为 methods（自动转大写）|
 | `retry` | `false` | 禁用重试 |
 | `retry` | `true` | 启用，使用默认配置 |
 | `retry` | `3` | 启用并设置 maxRetries=3 |
 | `_dedupe` | `false` | 单个请求禁用 |
+| `_dedupe` | `['post']` | 单个请求使用数组指定 methods |
 | `_retry` | `5` | 单个请求重试 5 次 |
 | `contentType` | `'json'` | JSON 格式 |
 | `contentType` | `'form'` | 表单格式 |
@@ -628,6 +683,8 @@ interface TokenManagerConfig {
   setTokens: (result: TokenRefreshResult) => void | Promise<void>;
   getRefreshToken?: () => string | null;
   onRefreshFailed?: (reason: TokenRefreshFailureReason, error: any) => void | Promise<void>;
+  // 自定义 token 赋值方式（可选，默认 Authorization: Bearer {token}）
+  setAuthorization?: (config: AxiosRequestConfig, token: string) => void;
 }
 
 interface TokenRefreshResult {

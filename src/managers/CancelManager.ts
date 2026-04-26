@@ -11,11 +11,11 @@ export class CancelManager {
 
   constructor(config: CancelConfig = {}) {
     const defaultMethods = ['GET'];
-    // 标准化配置
+    // 标准化配置（methods 统一转为大写）
     this.config = {
       ...config,
       enabled: config.enabled ?? true,
-      methods: config.methods ?? defaultMethods,
+      methods: (config.methods ?? defaultMethods).map((m) => String(m).toUpperCase()),
       generateKey: normalizeGenerateKey(config.generateKey),
     } as CancelConfig & { generateKey: GenerateKeyFunction };
   }

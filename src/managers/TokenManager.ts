@@ -19,6 +19,22 @@ export class TokenManager {
   }
 
   /**
+   * 设置 token 到请求配置中
+   * @param config 请求配置
+   * @param token token 值
+   */
+  private setAuthorization(config: AxiosRequestConfig, token: string): void {
+    // 如果用户提供了自定义设置方式，使用用户的
+    if (this.config.setAuthorization) {
+      this.config.setAuthorization(config, token);
+    } else {
+      // 默认：Authorization: Bearer {token}
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  /**
    * 判断是否是token过期错误
    * @param error axios错误对象
    * @returns 是否token过期
@@ -113,8 +129,8 @@ export class TokenManager {
         item.reject(error);
       } else {
         // 更新token
-        if (newToken && item.config.headers) {
-          item.config.headers.Authorization = `Bearer ${newToken}`;
+        if (newToken) {
+          this.setAuthorization(item.config, newToken);
         }
         item.resolve(undefined);
       }
@@ -133,8 +149,8 @@ export class TokenManager {
   private retryRequest(config: AxiosRequestConfig, axiosInstance: any): Promise<any> {
     // 获取最新的token
     const token = this.config.getAccessToken();
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token) {
+      this.setAuthorization(config, token);
     }
 
     // 重试请求
