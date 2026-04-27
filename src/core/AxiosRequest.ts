@@ -218,7 +218,7 @@ export class AxiosRequest {
     } else if (contentType === 'form') {
       finalConfig.headers = { ...finalConfig.headers, 'Content-Type': 'application/x-www-form-urlencoded' };
     } else if (contentType === 'file') {
-      const headers = { ...finalConfig.headers };
+      const headers: Record<string, string> = { ...finalConfig.headers } as Record<string, string>;
       delete headers['Content-Type'];
       finalConfig.headers = headers;
     } else {
