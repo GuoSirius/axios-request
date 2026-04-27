@@ -94,14 +94,22 @@ export class AxiosRequest {
       this.tokenManager = new TokenManager(config.tokenManager);
     }
 
+    // 初始化防重复提交管理器（默认开启）
     const dedupeConfig = normalizeDedupeConfig(config.dedupe);
     if (dedupeConfig) {
       this.dedupeManager = new DedupeManager(dedupeConfig);
+    } else if (config.dedupe === undefined) {
+      // 未配置时默认启用
+      this.dedupeManager = new DedupeManager({ enabled: true });
     }
 
+    // 初始化请求取消管理器（默认开启）
     const cancelConfig = normalizeCancelConfig(config.cancel);
     if (cancelConfig) {
       this.cancelManager = new CancelManager(cancelConfig);
+    } else if (config.cancel === undefined) {
+      // 未配置时默认启用
+      this.cancelManager = new CancelManager({ enabled: true });
     }
 
     const retryConfig = normalizeRetryConfig(config.retry);
