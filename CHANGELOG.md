@@ -6,9 +6,17 @@
 
 <!-- AUTO_GENERATED -->
 
-## 1.0.5 (2026-04-27)
+## 1.0.6 (2026-04-27)
 
 ### 🐛 Bug 修复
 
 - 修复防重复提交和请求取消默认未开启的问题
+
+### 🔧 构建/工具
+
+- release v1.0.5
+
+### 📌 其他
+
+- Merge branch 'main' of https://github.com/GuoSirius/axios-request (0cb05f0)
 
