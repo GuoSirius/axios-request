@@ -33,9 +33,7 @@ describe('AxiosRequest 基础功能', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client = new AxiosRequest({
-      axiosConfig: {
-        baseURL: 'https://api.example.com',
-      },
+      baseURL: 'https://api.example.com',
     });
   });
 
@@ -101,7 +99,7 @@ describe('generateRequestKey - 请求 Key 生成', () => {
 describe('DedupeManager - 防重复提交', () => {
   it('默认配置', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: true,
     });
     expect(client).toBeDefined();
@@ -109,10 +107,10 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('自定义时间窗口', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: {
         enabled: true,
-        duration: 2000,
+        timeWindow: 2000,
       },
     });
     expect(client).toBeDefined();
@@ -120,7 +118,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('禁用', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: false,
     });
     expect(client).toBeDefined();
@@ -128,7 +126,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('自定义 methods', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: {
         enabled: true,
         methods: ['POST'],
@@ -139,7 +137,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('字符串模板 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: {
         enabled: true,
         generateKey: 'only-url',
@@ -150,7 +148,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('函数 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: {
         enabled: true,
         generateKey: (config) => `${config.method}:${config.url}`,
@@ -164,7 +162,7 @@ describe('DedupeManager - 防重复提交', () => {
   it('字符串简写 - 直接作为 generateKey', () => {
     // 字符串直接作为 generateKey，启用防重复提交
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: 'method:url:data.id',
     });
     expect(client).toBeDefined();
@@ -172,7 +170,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('only-url 字符串简写', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: 'only-url',
     });
     expect(client).toBeDefined();
@@ -180,7 +178,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('函数简写 - 直接作为 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: (config) => `${config.method}:${config.url}`,
     });
     expect(client).toBeDefined();
@@ -188,7 +186,7 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('数组简写 - 直接作为 methods（自动转大写）', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: ['post', 'Post', 'PUT', 'patch'],
     });
     expect(client).toBeDefined();
@@ -196,15 +194,15 @@ describe('DedupeManager - 防重复提交', () => {
 
   it('数组简写 - 混合大小写会被归一化为大写', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       dedupe: ['get', 'Get', 'GET', 'delete', 'Delete'],
     });
     expect(client).toBeDefined();
   });
 
   it('单个请求 - 数组简写作为 methods', () => {
-    const config = { _dedupe: ['post', 'put'] };
-    expect(Array.isArray(config._dedupe)).toBe(true);
+    const config = { dedupe: ['post', 'put'] };
+    expect(Array.isArray(config.dedupe)).toBe(true);
   });
 });
 
@@ -214,7 +212,7 @@ describe('DedupeManager - 防重复提交', () => {
 describe('CancelManager - 请求取消', () => {
   it('默认配置', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: true,
     });
     expect(client).toBeDefined();
@@ -222,7 +220,7 @@ describe('CancelManager - 请求取消', () => {
 
   it('自定义 methods', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: {
         enabled: true,
         methods: ['GET', 'POST'],
@@ -233,7 +231,7 @@ describe('CancelManager - 请求取消', () => {
 
   it('禁用', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: false,
     });
     expect(client).toBeDefined();
@@ -241,7 +239,7 @@ describe('CancelManager - 请求取消', () => {
 
   it('自定义 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: {
         enabled: true,
         generateKey: 'only-url',
@@ -254,7 +252,7 @@ describe('CancelManager - 请求取消', () => {
 
   it('字符串简写 - 直接作为 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: 'method:url',
     });
     expect(client).toBeDefined();
@@ -262,7 +260,7 @@ describe('CancelManager - 请求取消', () => {
 
   it('函数简写 - 直接作为 generateKey', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: (config) => `${config.url}:${config.params?.q}`,
     });
     expect(client).toBeDefined();
@@ -270,15 +268,15 @@ describe('CancelManager - 请求取消', () => {
 
   it('数组简写 - 直接作为 methods（自动转大写）', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       cancel: ['get', 'Get', 'POST', 'post'],
     });
     expect(client).toBeDefined();
   });
 
   it('单个请求 - 数组简写作为 methods', () => {
-    const config = { _cancel: ['get', 'post'] };
-    expect(Array.isArray(config._cancel)).toBe(true);
+    const config = { cancel: ['get', 'post'] };
+    expect(Array.isArray(config.cancel)).toBe(true);
   });
 });
 
@@ -288,7 +286,7 @@ describe('CancelManager - 请求取消', () => {
 describe('RetryManager - 失败重试', () => {
   it('默认配置', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: true,
     });
     expect(client).toBeDefined();
@@ -296,7 +294,7 @@ describe('RetryManager - 失败重试', () => {
 
   it('数字简写', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: 3,
     });
     expect(client).toBeDefined();
@@ -304,24 +302,24 @@ describe('RetryManager - 失败重试', () => {
 
   it('完整配置', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: {
         enabled: true,
         maxRetries: 5,
-        delay: 200,
+        retryDelay: 200,
         exponentialBackoff: true,
       },
     });
     expect(client).toBeDefined();
   });
 
-  it('自定义 shouldRetry', () => {
+  it('自定义 retryCondition', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: {
         enabled: true,
         maxRetries: 3,
-        shouldRetry: (error, retryCount) => {
+        retryCondition: (error, retryCount) => {
           return retryCount < 3 && (!error.response || error.response.status >= 500);
         },
       },
@@ -331,7 +329,7 @@ describe('RetryManager - 失败重试', () => {
 
   it('禁用', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: false,
     });
     expect(client).toBeDefined();
@@ -339,9 +337,9 @@ describe('RetryManager - 失败重试', () => {
 
   // ========== 新增简写方式测试 ==========
 
-  it('函数简写 - 直接作为 shouldRetry', () => {
+  it('函数简写 - 直接作为 retryCondition', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
       retry: (error, retryCount) => {
         return retryCount < 3 && (!error.response || error.response.status >= 500);
       },
@@ -349,16 +347,16 @@ describe('RetryManager - 失败重试', () => {
     expect(client).toBeDefined();
   });
 
-  it('单个请求 - 函数简写 shouldRetry', () => {
+  it('单个请求 - 函数简写 retryCondition', () => {
     const config = {
-      _retry: (error: any, count: number) => count < 5,
+      retry: (error: any, count: number) => count < 5,
     };
-    expect(typeof config._retry).toBe('function');
+    expect(typeof config.retry).toBe('function');
   });
 
   it('单个请求 - 字符串简写 generateKey', () => {
-    const config = { _dedupe: 'only-url' };
-    expect(config._dedupe).toBe('only-url');
+    const config = { dedupe: 'only-url' };
+    expect(config.dedupe).toBe('only-url');
   });
 });
 
@@ -368,8 +366,8 @@ describe('RetryManager - 失败重试', () => {
 describe('TokenManager - Token 管理', () => {
   it('基本配置', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => ({
           accessToken: 'new-token',
@@ -383,8 +381,8 @@ describe('TokenManager - Token 管理', () => {
 
   it('带 refreshToken', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => ({
           accessToken: 'new-access',
@@ -400,8 +398,8 @@ describe('TokenManager - Token 管理', () => {
 
   it('带 onRefreshFailed', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => {
           throw new Error('Refresh failed');
@@ -418,8 +416,8 @@ describe('TokenManager - Token 管理', () => {
 
   it('带 setAuthorization 自定义 token 赋值', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => ({ accessToken: 'new-token' }),
         getAccessToken: () => 'current-token',
@@ -436,8 +434,8 @@ describe('TokenManager - Token 管理', () => {
 
   it('setAuthorization 使用不同 header 字段名', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => ({ accessToken: 'new-token' }),
         getAccessToken: () => 'token',
@@ -459,11 +457,9 @@ describe('TokenManager - Token 管理', () => {
 describe('组合配置', () => {
   it('同时启用所有功能', () => {
     const client = new AxiosRequest({
-      axiosConfig: {
-        baseURL: 'https://api.example.com',
-        timeout: 10000,
-      },
-      tokenManager: {
+      baseURL: 'https://api.example.com',
+      timeout: 10000,
+      token: {
         isTokenExpired: (error) => error.response?.status === 401,
         refreshToken: async () => ({ accessToken: 'new-token' }),
         getAccessToken: () => 'token',
@@ -471,7 +467,7 @@ describe('组合配置', () => {
       },
       dedupe: {
         enabled: true,
-        duration: 1000,
+        timeWindow: 1000,
       },
       cancel: {
         enabled: true,
@@ -480,7 +476,7 @@ describe('组合配置', () => {
       retry: {
         enabled: true,
         maxRetries: 3,
-        delay: 100,
+        retryDelay: 100,
         exponentialBackoff: true,
       },
     });
@@ -489,9 +485,7 @@ describe('组合配置', () => {
 
   it('简写组合', () => {
     const client = new AxiosRequest({
-      axiosConfig: {
-        baseURL: 'https://api.example.com',
-      },
+      baseURL: 'https://api.example.com',
       dedupe: false,  // 简写
       cancel: true,   // 简写
       retry: 3,       // 简写
@@ -509,36 +503,34 @@ describe('单个请求级别配置', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     client = new AxiosRequest({
-      axiosConfig: {
-        baseURL: 'https://api.example.com',
-      },
+      baseURL: 'https://api.example.com',
     });
   });
 
-  it('_dedupe 配置结构正确', () => {
+  it('dedupe 配置结构正确', () => {
     // 验证配置对象可以被正确构建（不执行实际请求）
-    const config = { _dedupe: false };
-    expect(config._dedupe).toBe(false);
+    const config = { dedupe: false };
+    expect(config.dedupe).toBe(false);
   });
 
-  it('_dedupe 自定义配置结构正确', () => {
-    const config = { _dedupe: { enabled: true, duration: 2000 } };
-    expect(config._dedupe).toEqual({ enabled: true, duration: 2000 });
+  it('dedupe 自定义配置结构正确', () => {
+    const config = { dedupe: { enabled: true, timeWindow: 2000 } };
+    expect(config.dedupe).toEqual({ enabled: true, timeWindow: 2000 });
   });
 
-  it('_cancel 配置结构正确', () => {
-    const config = { _cancel: false };
-    expect(config._cancel).toBe(false);
+  it('cancel 配置结构正确', () => {
+    const config = { cancel: false };
+    expect(config.cancel).toBe(false);
   });
 
-  it('_retry 数字简写结构正确', () => {
-    const config = { _retry: 5 };
-    expect(config._retry).toBe(5);
+  it('retry 数字简写结构正确', () => {
+    const config = { retry: 5 };
+    expect(config.retry).toBe(5);
   });
 
-  it('_retry 禁用配置正确', () => {
-    const config = { _retry: false };
-    expect(config._retry).toBe(false);
+  it('retry 禁用配置正确', () => {
+    const config = { retry: false };
+    expect(config.retry).toBe(false);
   });
 
   it('contentType json 配置正确', () => {
@@ -563,14 +555,14 @@ describe('单个请求级别配置', () => {
 describe('clear - 清除请求', () => {
   it('实例有 clear 方法', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
     });
     expect(typeof client.clear).toBe('function');
   });
 
   it('clear 不抛出错误', () => {
     const client = new AxiosRequest({
-      axiosConfig: { baseURL: 'https://api.example.com' },
+      baseURL: 'https://api.example.com',
     });
     expect(() => client.clear()).not.toThrow();
   });

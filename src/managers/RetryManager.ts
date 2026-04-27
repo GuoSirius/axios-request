@@ -1,100 +1,107 @@
 import { AxiosRequestConfig } from 'axios';
-import { RetryConfig } from '../types';
+import { RetryConfig, RetryShortcut } from '../types';
+
+/**
+ * Retry上下文 - 每个请求独立的重试配置
+ */
+interface RetryContext {
+  enabled: boolean;
+  maxRetries: number;
+  retryDelay: number;
+  exponentialBackoff: boolean;
+  retryCondition?: (error: any, retryCount: number) => boolean;
+}
+
+/**
+ * 规范化 RetryConfig
+ */
+function normalizeConfig(config: RetryShortcut): Partial<RetryConfig> {
+  if (!config) return {};
+  if (config === true) return { enabled: true };
+  if (typeof config === 'number') return { enabled: true, maxRetries: config };
+  if (typeof config === 'function') return { enabled: true, retryCondition: config };
+  return { ...config };
+}
 
 /**
  * 请求重试管理器
  */
 export class RetryManager {
-  private config: RetryConfig;
+  private defaultConfig: RetryContext;
 
-  constructor(config: RetryConfig) {
-    this.config = {
-      ...config,
-      enabled: config.enabled ?? false,
-      maxRetries: config.maxRetries ?? 3,
-      delay: config.delay ?? 100,
-      exponentialBackoff: config.exponentialBackoff ?? false,
+  constructor(config: RetryShortcut = {}) {
+    const normalized = normalizeConfig(config);
+    this.defaultConfig = {
+      enabled: normalized.enabled ?? false,
+      maxRetries: normalized.maxRetries ?? 3,
+      retryDelay: normalized.retryDelay ?? 100,
+      exponentialBackoff: normalized.exponentialBackoff ?? false,
+      retryCondition: normalized.retryCondition,
     };
   }
 
   /**
-   * 检查是否应该处理该请求
-   * @param config 请求配置
-   * @returns 是否应该重试
+   * 创建请求上下文
    */
-  shouldRetry(config: AxiosRequestConfig): boolean {
-    if (!this.config.enabled) {
-      return false;
-    }
+  createContext(override?: Partial<RetryContext>): RetryContext {
+    return {
+      enabled: override?.enabled ?? this.defaultConfig.enabled,
+      maxRetries: override?.maxRetries ?? this.defaultConfig.maxRetries,
+      retryDelay: override?.retryDelay ?? this.defaultConfig.retryDelay,
+      exponentialBackoff: override?.exponentialBackoff ?? this.defaultConfig.exponentialBackoff,
+      retryCondition: override?.retryCondition ?? this.defaultConfig.retryCondition,
+    };
+  }
 
-    // 检查请求配置中是否有重试次数
+  /**
+   * 检查是否应该重试
+   */
+  shouldRetry(context: RetryContext, config: AxiosRequestConfig): boolean {
+    if (!context.enabled) return false;
     const extendedConfig = config as any;
-    const maxRetries = extendedConfig._maxRetries || this.config.maxRetries || 3;
+    const maxRetries = extendedConfig._maxRetries || context.maxRetries;
     const currentRetry = extendedConfig._retryCount || 0;
-
     return currentRetry < maxRetries;
   }
 
   /**
    * 判断是否应该对特定错误进行重试
-   * @param error 错误对象
-   * @param retryCount 当前重试次数
-   * @returns 是否应该重试
    */
-  shouldRetryOnError(error: any, retryCount: number): boolean {
-    if (this.config.shouldRetry) {
-      return this.config.shouldRetry(error, retryCount);
+  shouldRetryOnError(context: RetryContext, error: any, retryCount: number): boolean {
+    if (context.retryCondition) {
+      return context.retryCondition(error, retryCount);
     }
-
-    // 默认：网络错误或5xx错误才重试
-    if (!error.response) {
-      // 网络错误
-      return true;
-    }
-
+    // 默认：网络错误或5xx错误
+    if (!error.response) return true;
     const status = error.response.status;
     return status >= 500 && status < 600;
   }
 
   /**
    * 计算重试延迟
-   * @param retryCount 当前重试次数
-   * @returns 延迟毫秒数
    */
-  calculateDelay(retryCount: number): number {
-    const baseDelay = this.config.delay || 100;
-
-    if (this.config.exponentialBackoff) {
-      // 指数退避：delay * 2^retryCount
-      return baseDelay * Math.pow(2, retryCount);
+  calculateDelay(context: RetryContext, retryCount: number): number {
+    if (context.exponentialBackoff) {
+      return context.retryDelay * Math.pow(2, retryCount);
     }
-
-    return baseDelay;
+    return context.retryDelay;
   }
 
   /**
    * 执行重试
-   * @param config 请求配置
-   * @param makeRequest 发起请求的函数
-   * @param retryCount 当前重试次数
-   * @returns Promise
    */
-  async retry<T = any>(
+  async retry<T>(
+    context: RetryContext,
     config: AxiosRequestConfig,
     makeRequest: (config: AxiosRequestConfig) => Promise<T>,
     retryCount: number
   ): Promise<T> {
-    // 计算延迟
-    const delay = this.calculateDelay(retryCount);
-
-    // 等待延迟
+    const delay = this.calculateDelay(context, retryCount);
     await new Promise((resolve) => setTimeout(resolve, delay));
 
-    // 更新重试次数
     const newConfig = { ...config } as any;
     newConfig._retryCount = retryCount + 1;
 
-    // 发起请求
     return makeRequest(newConfig);
   }
 }

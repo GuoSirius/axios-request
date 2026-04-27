@@ -2,122 +2,54 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import {
   AxiosRequestInstanceConfig,
   AxiosRequestConfigExtended,
-  DedupeConfig,
-  CancelConfig,
-  RetryConfig,
-  GenerateKeyFunction,
 } from '../types';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
 import { RetryManager } from '../managers/RetryManager';
+import { normalizeGenerateKey } from '../utils/requestKey';
 
 /**
- * 将简写配置转换为完整配置对象
- * 支持：
- * - boolean: true/false
- * - string: 直接作为 generateKey
- * - function: 直接作为 generateKey
- * - array: 直接作为 methods（自动转大写）
- * - object: 完整配置对象
+ * 请求级别上下文 - 每个请求独立的执行状态
+ * 通过闭包实现天然隔离，无需 Map 存储
  */
-function normalizeDedupeConfig(config: AxiosRequestInstanceConfig['dedupe']): DedupeConfig | undefined {
-  if (config === undefined) return undefined;
-  if (config === false) return { enabled: false };
-  if (config === true) return { enabled: true };
-  // 数组：直接作为 methods（自动转大写）
-  if (Array.isArray(config)) return { enabled: true, methods: config.map((m) => String(m).toUpperCase()) };
-  // 字符串：直接作为 generateKey
-  if (typeof config === 'string') return { enabled: true, generateKey: config as string };
-  // 函数：直接作为 generateKey
-  if (typeof config === 'function') return { enabled: true, generateKey: config as GenerateKeyFunction };
-  return config as DedupeConfig;
-}
-
-/**
- * 规范化取消配置
- * 支持：
- * - boolean: true/false
- * - string: 直接作为 generateKey
- * - function: 直接作为 generateKey
- * - array: 直接作为 methods（自动转大写）
- * - object: 完整配置对象
- */
-function normalizeCancelConfig(config: AxiosRequestInstanceConfig['cancel']): CancelConfig | undefined {
-  if (config === undefined) return undefined;
-  if (config === false) return { enabled: false };
-  if (config === true) return { enabled: true };
-  // 数组：直接作为 methods（自动转大写）
-  if (Array.isArray(config)) return { enabled: true, methods: config.map((m) => String(m).toUpperCase()) };
-  // 字符串：直接作为 generateKey
-  if (typeof config === 'string') return { enabled: true, generateKey: config as string };
-  // 函数：直接作为 generateKey
-  if (typeof config === 'function') return { enabled: true, generateKey: config as GenerateKeyFunction };
-  return config as CancelConfig;
-}
-
-/**
- * 规范化重试配置
- * 支持：
- * - boolean: true/false
- * - number: enabled + maxRetries
- * - function: 直接作为 shouldRetry
- * - object: 完整配置对象
- */
-function normalizeRetryConfig(config: AxiosRequestInstanceConfig['retry']): RetryConfig | undefined {
-  if (config === undefined) return undefined;
-  if (config === false) return { enabled: false };
-  if (config === true) return { enabled: true };
-  // 数字：enabled + maxRetries
-  if (typeof config === 'number') return { enabled: true, maxRetries: config };
-  // 函数：直接作为 shouldRetry
-  if (typeof config === 'function') return { enabled: true, shouldRetry: config };
-  return config as RetryConfig;
+interface RequestContext {
+  token?: ReturnType<TokenManager['createContext']>;
+  dedupe?: ReturnType<DedupeManager['createContext']>;
+  cancel?: ReturnType<CancelManager['createContext']>;
+  retry?: ReturnType<RetryManager['createContext']>;
 }
 
 /**
  * AxiosRequest - 基于axios的增强请求库
+ * 
+ * 架构设计：
+ * - 实例级管理器：TokenManager、DedupeManager、CancelManager、RetryManager（单例）
+ * - 请求级上下文：通过 createContext() 工厂方法创建，每个请求独立
+ * - 配置合并：实例配置作为默认值，请求配置作为覆盖
  */
 export class AxiosRequest {
   private instance: AxiosInstance;
+  private instanceConfig: AxiosRequestInstanceConfig;
+  
+  // 实例级管理器
   private tokenManager?: TokenManager;
-  private dedupeManager?: DedupeManager;
-  private cancelManager?: CancelManager;
-  private retryManager?: RetryManager;
+  private dedupeManager: DedupeManager;
+  private cancelManager: CancelManager;
+  private retryManager: RetryManager;
 
   constructor(config: AxiosRequestInstanceConfig = {}) {
-    // 创建axios实例
-    this.instance = axios.create(config.axiosConfig);
+    this.instanceConfig = config;
+    this.instance = axios.create(config);
 
-    // 初始化各管理器
-    if (config.tokenManager) {
-      this.tokenManager = new TokenManager(config.tokenManager);
+    // 初始化管理器
+    if (config.token) {
+      this.tokenManager = new TokenManager(config.token);
     }
+    this.dedupeManager = new DedupeManager(config.dedupe ?? { enabled: true });
+    this.cancelManager = new CancelManager(config.cancel ?? { enabled: true });
+    this.retryManager = new RetryManager(config.retry ?? {});
 
-    // 初始化防重复提交管理器（默认开启）
-    const dedupeConfig = normalizeDedupeConfig(config.dedupe);
-    if (dedupeConfig) {
-      this.dedupeManager = new DedupeManager(dedupeConfig);
-    } else if (config.dedupe === undefined) {
-      // 未配置时默认启用
-      this.dedupeManager = new DedupeManager({ enabled: true });
-    }
-
-    // 初始化请求取消管理器（默认开启）
-    const cancelConfig = normalizeCancelConfig(config.cancel);
-    if (cancelConfig) {
-      this.cancelManager = new CancelManager(cancelConfig);
-    } else if (config.cancel === undefined) {
-      // 未配置时默认启用
-      this.cancelManager = new CancelManager({ enabled: true });
-    }
-
-    const retryConfig = normalizeRetryConfig(config.retry);
-    if (retryConfig) {
-      this.retryManager = new RetryManager(retryConfig);
-    }
-
-    // 设置拦截器
     this.setupInterceptors();
   }
 
@@ -125,51 +57,71 @@ export class AxiosRequest {
    * 设置拦截器
    */
   private setupInterceptors(): void {
-    // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
+        const ctx = (config as any)._context as RequestContext | undefined;
+        if (ctx?.token) {
+          const token = this.tokenManager?.getToken(ctx.token) || null;
+          if (token) {
+            this.tokenManager?.setAuthorization(config, token);
+          }
+        }
         return config;
       },
-      (error) => {
-        return Promise.reject(error);
-      }
+      (error) => Promise.reject(error)
     );
 
-    // 响应拦截器
     this.instance.interceptors.response.use(
-      (response) => {
-        return response;
-      },
-      async (error) => {
-        return this.handleError(error);
-      }
+      (response) => this.handleResponse(response),
+      (error) => this.handleError(error)
     );
   }
 
   /**
-   * 处理请求错误
-   * @param error axios错误对象
-   * @returns Promise
+   * 处理正常响应
+   */
+  private handleResponse(response: any): any {
+    const ctx = (response.config as any)._context as RequestContext | undefined;
+    if (ctx?.token && this.tokenManager?.isTokenExpiredFromResponse(response.data)) {
+      // 需要触发 token 刷新
+      const error = { response, config: response.config };
+      return this.handleError(error);
+    }
+    return response;
+  }
+
+  /**
+   * 处理错误
    */
   private async handleError(error: any): Promise<any> {
-    const config = error.config as AxiosRequestConfigExtended;
+    const ctx = (error.config as any)._context as RequestContext | undefined;
+    if (!ctx) return Promise.reject(error);
 
-    // 检查是否是token过期
-    if (this.tokenManager && this.tokenManager.isTokenExpired(error)) {
+    // Token 过期处理
+    if (ctx.token && this.tokenManager?.isTokenExpired(error)) {
       try {
-        return await this.tokenManager.handleExpiredToken(error, config, this.instance);
+        return await this.tokenManager.handleExpiredToken(
+          ctx.token,
+          error,
+          error.config,
+          (config) => this.instance.request(config)
+        );
       } catch (refreshError) {
         return Promise.reject(refreshError);
       }
     }
 
-    // 检查是否需要重试
-    if (this.retryManager && this.retryManager.shouldRetry(config)) {
-      const retryCount = (config as any)._retryCount || 0;
-
-      if (this.retryManager.shouldRetryOnError(error, retryCount)) {
+    // 重试处理
+    if (ctx.retry && this.retryManager.shouldRetry(ctx.retry, error.config)) {
+      const retryCount = (error.config as any)._retryCount || 0;
+      if (this.retryManager.shouldRetryOnError(ctx.retry, error, retryCount)) {
         try {
-          return await this.retryManager.retry(config, (c) => this.instance(c), retryCount);
+          return await this.retryManager.retry(
+            ctx.retry,
+            error.config,
+            (config) => this.instance.request(config),
+            retryCount
+          );
         } catch (retryError) {
           return Promise.reject(retryError);
         }
@@ -180,168 +132,192 @@ export class AxiosRequest {
   }
 
   /**
-   * 发起请求
-   * @param config 请求配置
-   * @returns Promise
+   * 创建请求上下文
    */
-  async request<T = any>(config: AxiosRequestConfigExtended): Promise<T> {
+  private createRequestContext(config: AxiosRequestConfigExtended): RequestContext {
+    const ctx: RequestContext = {};
+
+    // Token 上下文
+    if (config.token !== false) {
+      if (this.tokenManager) {
+        ctx.token = this.tokenManager.createContext(
+          typeof config.token === 'object' ? config.token.getAccessToken : undefined
+        );
+      } else if (typeof config.token === 'object') {
+        ctx.token = new TokenManager(config.token).createContext(config.token.getAccessToken);
+      }
+    }
+
+    // Dedupe 上下文
+    if (config.dedupe !== false) {
+      ctx.dedupe = this.dedupeManager.createContext(
+        this.normalizeDedupeOverride(config.dedupe)
+      );
+    }
+
+    // Cancel 上下文
+    if (config.cancel !== false) {
+      ctx.cancel = this.cancelManager.createContext(
+        this.normalizeCancelOverride(config.cancel)
+      );
+    }
+
+    // Retry 上下文
+    if (config.retry !== false) {
+      ctx.retry = this.retryManager.createContext(
+        this.normalizeRetryOverride(config.retry)
+      );
+    }
+
+    return ctx;
+  }
+
+  private normalizeDedupeOverride(config: any) {
+    if (!config || config === true) return undefined;
+    if (typeof config === 'string') return { generateKey: normalizeGenerateKey(config) };
+    if (typeof config === 'function') return { generateKey: config };
+    if (Array.isArray(config)) return { methods: config };
+    return { 
+      enabled: config.enabled,
+      timeWindow: config.timeWindow,
+      methods: config.methods,
+      generateKey: config.generateKey ? normalizeGenerateKey(config.generateKey) : undefined,
+    };
+  }
+
+  private normalizeCancelOverride(config: any) {
+    if (!config || config === true) return undefined;
+    if (typeof config === 'string') return { generateKey: normalizeGenerateKey(config) };
+    if (typeof config === 'function') return { generateKey: config };
+    if (Array.isArray(config)) return { methods: config };
+    return {
+      enabled: config.enabled,
+      methods: config.methods,
+      generateKey: config.generateKey ? normalizeGenerateKey(config.generateKey) : undefined,
+    };
+  }
+
+  private normalizeRetryOverride(config: any) {
+    if (!config || config === true) return undefined;
+    if (typeof config === 'number') return { maxRetries: config };
+    if (typeof config === 'function') return { retryCondition: config };
+    return config;
+  }
+
+  /**
+   * 统一处理 contentType
+   */
+  private processContentType(config: AxiosRequestConfigExtended): AxiosRequestConfigExtended {
+    if (!config.contentType) return config;
+    
+    const contentType = config.contentType;
     let finalConfig = { ...config };
 
-    // 统一将method转为大写，避免用户随意写（如 poSt、Get等）
+    if (contentType === 'json') {
+      finalConfig.headers = { ...finalConfig.headers, 'Content-Type': 'application/json;charset=UTF-8' };
+    } else if (contentType === 'form') {
+      finalConfig.headers = { ...finalConfig.headers, 'Content-Type': 'application/x-www-form-urlencoded' };
+    } else if (contentType === 'file') {
+      const headers = { ...finalConfig.headers };
+      delete headers['Content-Type'];
+      finalConfig.headers = headers;
+    } else {
+      finalConfig.headers = { ...finalConfig.headers, 'Content-Type': contentType };
+    }
+
+    return finalConfig;
+  }
+
+  /**
+   * 发起请求
+   */
+  async request<T = any>(config: AxiosRequestConfigExtended): Promise<T> {
+    let finalConfig = { ...config } as AxiosRequestConfigExtended & { _context?: RequestContext };
+
+    // 统一 method 大写
     if (finalConfig.method && typeof finalConfig.method === 'string') {
       finalConfig.method = finalConfig.method.toUpperCase() as any;
     }
 
-    // 处理 contentType，设置对应的 Content-Type header
-    if (finalConfig.contentType) {
-      const contentType = finalConfig.contentType;
-      if (contentType === 'json') {
-        finalConfig.headers = {
-          ...finalConfig.headers,
-          'Content-Type': 'application/json;charset=UTF-8',
-        };
-      } else if (contentType === 'form') {
-        finalConfig.headers = {
-          ...finalConfig.headers,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        };
-      } else if (contentType === 'file') {
-        // file 类型不设置 Content-Type，让浏览器自动处理 multipart/form-data
-        delete finalConfig.headers?.['Content-Type'];
-      } else {
-        // 自定义字符串，直接作为 Content-Type
-        finalConfig.headers = {
-          ...finalConfig.headers,
-          'Content-Type': contentType,
-        };
+    // 处理 contentType
+    finalConfig = this.processContentType(finalConfig);
+
+    // 创建请求上下文并注入到配置
+    const ctx = this.createRequestContext(finalConfig);
+    finalConfig._context = ctx;
+
+    try {
+      // 防重复提交
+      if (ctx.dedupe && this.dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
+        return await this.dedupeManager.dedupe(
+          ctx.dedupe,
+          finalConfig,
+          () => this.instance.request<T>(finalConfig).then(r => r.data)
+        );
       }
-    }
 
-    // 应用防重复提交
-    if (this.dedupeManager && this.dedupeManager.shouldDedupe(finalConfig)) {
-      return this.dedupeManager.dedupe(finalConfig, () => this.makeRequest(finalConfig));
-    }
+      // 请求取消
+      if (ctx.cancel && this.cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
+        finalConfig = this.cancelManager.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
+      }
 
-    // 应用请求取消
-    if (this.cancelManager && this.cancelManager.shouldCancel(finalConfig)) {
-      finalConfig = this.cancelManager.setupCancel(finalConfig);
+      // 发起请求
+      const response = await this.instance.request<T>(finalConfig);
+      return response.data;
+    } catch (error) {
+      throw error;
     }
-
-    // 发起请求
-    return this.makeRequest(finalConfig);
   }
 
-  /**
-   * 实际发起请求
-   * @param config 请求配置
-   * @returns Promise
-   */
-  private async makeRequest<T = any>(config: AxiosRequestConfig): Promise<T> {
-    const response = await this.instance.request<T>(config);
-    return response.data;
-  }
+  // ========== 便捷方法 ==========
 
-  /**
-   * GET请求
-   */
   get<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'GET',
-    });
+    return this.request<T>({ ...config, url, method: 'GET' });
   }
 
-  /**
-   * POST请求
-   */
   post<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'POST',
-      data,
-    });
+    return this.request<T>({ ...config, url, method: 'POST', data });
   }
 
-  /**
-   * PUT请求
-   */
   put<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'PUT',
-      data,
-    });
+    return this.request<T>({ ...config, url, method: 'PUT', data });
   }
 
-  /**
-   * PATCH请求
-   */
   patch<T = any>(url: string, data?: any, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'PATCH',
-      data,
-    });
+    return this.request<T>({ ...config, url, method: 'PATCH', data });
   }
 
-  /**
-   * DELETE请求
-   */
   delete<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'DELETE',
-    });
+    return this.request<T>({ ...config, url, method: 'DELETE' });
   }
 
-  /**
-   * HEAD请求
-   */
   head<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'HEAD',
-    });
+    return this.request<T>({ ...config, url, method: 'HEAD' });
   }
 
-  /**
-   * OPTIONS请求
-   */
   options<T = any>(url: string, config?: AxiosRequestConfigExtended): Promise<T> {
-    return this.request<T>({
-      ...config,
-      url,
-      method: 'OPTIONS',
-    });
+    return this.request<T>({ ...config, url, method: 'OPTIONS' });
   }
 
-  /**
-   * 获取axios实例（用于高级配置）
-   */
+  // ========== 实例方法 ==========
+
   getInstance(): AxiosInstance {
     return this.instance;
   }
 
-  /**
-   * 更新token管理器配置
-   */
-  setTokenManager(config: AxiosRequestInstanceConfig['tokenManager']): void {
+  setTokenManager(config: AxiosRequestInstanceConfig['token']): void {
     if (config) {
       this.tokenManager = new TokenManager(config);
+      this.instanceConfig.token = config;
     }
   }
 
-  /**
-   * 清除所有待处理的请求
-   */
   clear(): void {
-    this.dedupeManager?.clear();
-    this.cancelManager?.clear();
+    this.dedupeManager.clear();
+    this.cancelManager.clear();
+  }
+
+  getInstanceConfig(): AxiosRequestInstanceConfig {
+    return { ...this.instanceConfig };
   }
 }

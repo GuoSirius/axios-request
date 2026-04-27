@@ -4,7 +4,7 @@
 
 ## 特性
 
-- ✅ **零成本接入**：与 axios API 完全一致，无学习成本
+- ✅ **零成本接入**：直接继承 axios 配置，无学习成本
 - 🔄 **Token 自动刷新**：自动检测 token 过期并刷新，刷新期间请求自动排队
 - 🚫 **防止重复提交**：防止表单重复提交，可配置时间窗口
 - ❌ **请求自动取消**：搜索类高频请求，自动取消上次请求
@@ -38,7 +38,7 @@ pnpm add axios-request axios
 
 <script>
   const client = new AxiosRequest({
-    axiosConfig: { baseURL: '/api' }
+    baseURL: '/api'
   });
 </script>
 ```
@@ -52,12 +52,10 @@ pnpm add axios-request axios
 ```typescript
 import { AxiosRequest } from 'axios-request';
 
-// 1. 创建实例
+// 1. 创建实例（直接继承 axios 配置）
 const client = new AxiosRequest({
-  axiosConfig: {
-    baseURL: 'https://api.example.com',
-    timeout: 10000,
-  },
+  baseURL: 'https://api.example.com',
+  timeout: 10000,
 });
 
 // 2. 使用方式与 axios 完全一致
@@ -74,13 +72,11 @@ import { AxiosRequest } from 'axios-request';
 import axios from 'axios';
 
 const client = new AxiosRequest({
-  axiosConfig: {
-    baseURL: 'https://api.example.com',
-    timeout: 10000,
-  },
+  baseURL: 'https://api.example.com',
+  timeout: 10000,
 
   // Token 自动刷新
-  tokenManager: {
+  token: {
     isTokenExpired: (error) => error.response?.status === 401,
     refreshToken: async () => {
       const res = await axios.post('/auth/refresh', {
@@ -100,7 +96,7 @@ const client = new AxiosRequest({
   // 防重复提交（默认开启）
   dedupe: {
     enabled: true,
-    duration: 1000,  // 1秒内重复请求会被合并
+    timeWindow: 1000,  // 1秒内重复请求会被合并
   },
 
   // 请求取消（默认开启，仅 GET）
@@ -112,7 +108,7 @@ const client = new AxiosRequest({
   retry: {
     enabled: true,
     maxRetries: 3,
-    delay: 100,
+    retryDelay: 100,
     exponentialBackoff: true,
   },
 });
@@ -131,8 +127,8 @@ const data = await client.get('/users');
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: { baseURL: 'https://api.example.com' },
-  tokenManager: {
+  baseURL: 'https://api.example.com',
+  token: {
     // 【必须】判断 token 是否失效
     isTokenExpired: (error) => error.response?.status === 401,
 
@@ -184,12 +180,30 @@ const client = new AxiosRequest({
 ```typescript
 // 公开接口不需要 token
 await client.get('/public/news', {
-  _token: false,  // 简写方式
+  token: false,
 });
+```
 
-// 或
+#### 单个请求使用不同的 Token
+
+```typescript
+// 使用临时的 token（不影响实例配置）
+await client.post('/admin/users', data, {
+  token: {
+    isTokenExpired: () => false,
+    refreshToken: async () => ({ accessToken: 'temp-token' }),
+    getAccessToken: () => 'temp-token',
+    setTokens: () => {},
+  },
+});
+```
+
+#### 单个请求禁用 Token
+
+```typescript
+// 公开接口不需要 token
 await client.get('/public/news', {
-  _token: { enabled: false },
+  token: false,
 });
 ```
 
@@ -199,7 +213,7 @@ await client.get('/public/news', {
 
 ```typescript
 const client = new AxiosRequest({
-  tokenManager: {
+  token: {
     // ...其他配置
 
     // 自定义 header 字段名
@@ -231,10 +245,10 @@ const client = new AxiosRequest({
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: { baseURL: 'https://api.example.com' },
+  baseURL: 'https://api.example.com',
   dedupe: {
-    enabled: true,       // 默认 true
-    duration: 1000,       // 默认 1000ms
+    enabled: true,           // 默认 true
+    timeWindow: 1000,       // 默认 1000ms
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],  // 默认值
   },
 });
@@ -285,7 +299,7 @@ dedupe: true
 // 完整配置
 dedupe: {
   enabled: true,
-  duration: 2000,
+  timeWindow: 2000,
 }
 
 // 数组简写 - 直接作为 methods（自动转大写）
@@ -298,14 +312,14 @@ dedupe: ['get', 'Get', 'GET']              // 混合大小写会被归一化为�
 ```typescript
 // 这次请求禁用防重复
 await client.post('/users', data, {
-  _dedupe: false,
+  dedupe: false,
 });
 
 // 这次请求用更长的防重时间
 await client.post('/users', data, {
-  _dedupe: {
+  dedupe: {
     enabled: true,
-    duration: 3000,
+    timeWindow: 3000,
   },
 });
 ```
@@ -320,7 +334,7 @@ await client.post('/users', data, {
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: { baseURL: 'https://api.example.com' },
+  baseURL: 'https://api.example.com',
   cancel: {
     enabled: true,         // 默认 true
     methods: ['GET'],      // 默认值
@@ -330,7 +344,7 @@ const client = new AxiosRequest({
 // 用户在搜索框输入
 client.get('/search', { params: { q: 'a' } });      // 请求 A
 client.get('/search', { params: { q: 'ab' } });     // 自动取消 A，请求 B
-client.get('/search', { params: { q: 'abc' } });   // 自动取消 B，请求 C
+client.get('/search', { params: { q: 'abc' } });    // 自动取消 B，请求 C
 ```
 
 #### 支持 POST 搜索
@@ -365,7 +379,7 @@ const client = new AxiosRequest({
 
 ```typescript
 await client.get('/static/data', {
-  _cancel: false,  // 不取消上一次请求
+  cancel: false,  // 不取消上一次请求
 });
 ```
 
@@ -390,11 +404,11 @@ cancel: ['get', 'Get', 'POST']              // 自动转为 { enabled: true, met
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: { baseURL: 'https://api.example.com' },
+  baseURL: 'https://api.example.com',
   retry: {
     enabled: true,           // 默认 false
     maxRetries: 3,           // 默认 3
-    delay: 100,              // 默认 100ms
+    retryDelay: 100,          // 默认 100ms
     exponentialBackoff: false,
   },
 });
@@ -407,7 +421,7 @@ const client = new AxiosRequest({
   retry: {
     enabled: true,
     maxRetries: 5,
-    delay: 100,
+    retryDelay: 100,
     exponentialBackoff: true,  // 100ms → 200ms → 400ms → 800ms → 1600ms
   },
 });
@@ -421,7 +435,7 @@ const client = new AxiosRequest({
     enabled: true,
     maxRetries: 3,
     // 只重试网络错误和 5xx 错误
-    shouldRetry: (error, retryCount) => {
+    retryCondition: (error, retryCount) => {
       // 不重试 4xx 客户端错误
       if (error.response?.status >= 400 && error.response?.status < 500) {
         return false;
@@ -446,7 +460,7 @@ retry: true   // 启用，使用默认配置
 retry: {
   enabled: true,
   maxRetries: 5,
-  delay: 200,
+  retryDelay: 200,
 }
 ```
 
@@ -455,12 +469,12 @@ retry: {
 ```typescript
 // 重试 5 次
 await client.get('/unreliable', {
-  _retry: 5,
+  retry: 5,
 });
 
 // 这次不用重试
 await client.get('/fast-fail', {
-  _retry: false,
+  retry: false,
 });
 ```
 
@@ -584,7 +598,7 @@ const entries = flattenFormData(formData);
 |--------|------|------|
 | `dedupe` | `false` | 禁用防重复提交 |
 | `dedupe` | `true` | 启用，使用默认配置 |
-| `dedupe` | `{ duration: 2000 }` | 只需改一个参数 |
+| `dedupe` | `{ timeWindow: 2000 }` | 只需改一个参数 |
 | `dedupe` | `['post', 'put']` | 数组直接作为 methods（自动转大写）|
 | `cancel` | `false` | 禁用请求取消 |
 | `cancel` | `true` | 启用，使用默认配置 |
@@ -592,9 +606,9 @@ const entries = flattenFormData(formData);
 | `retry` | `false` | 禁用重试 |
 | `retry` | `true` | 启用，使用默认配置 |
 | `retry` | `3` | 启用并设置 maxRetries=3 |
-| `_dedupe` | `false` | 单个请求禁用 |
-| `_dedupe` | `['post']` | 单个请求使用数组指定 methods |
-| `_retry` | `5` | 单个请求重试 5 次 |
+| `dedupe` | `false` | 单个请求禁用 |
+| `dedupe` | `['post']` | 单个请求使用数组指定 methods |
+| `retry` | `5` | 单个请求重试 5 次 |
 | `contentType` | `'json'` | JSON 格式 |
 | `contentType` | `'form'` | 表单格式 |
 | `contentType` | `'file'` | 文件上传 |
@@ -608,9 +622,16 @@ const entries = flattenFormData(formData);
 ```typescript
 import { AxiosRequest } from 'axios-request';
 
+// 直接继承 axios 配置 + 新增功能配置
 const client = new AxiosRequest({
-  axiosConfig?: AxiosRequestConfig,
-  tokenManager?: TokenManagerConfig,
+  // axios 原生配置（直接写在顶层）
+  baseURL?: string,
+  timeout?: number,
+  headers?: object,
+  // ...其他 axios 配置
+
+  // 新增功能配置
+  token?: TokenManagerConfig,
   dedupe?: DedupeConfig | boolean,
   cancel?: CancelConfig | boolean,
   retry?: RetryConfig | boolean | number,
@@ -641,8 +662,8 @@ const client = new AxiosRequest({
 ```typescript
 interface DedupeConfig {
   enabled?: boolean;                    // 默认 true
-  duration?: number;                  // 默认 1000（毫秒）
-  methods?: string[];                 // 默认 ['POST', 'PUT', 'PATCH', 'DELETE']
+  timeWindow?: number;                  // 默认 1000（毫秒）
+  methods?: string[];                   // 默认 ['POST', 'PUT', 'PATCH', 'DELETE']
   generateKey?: GenerateKeyFunction | string;  // 函数或字符串模板
 }
 
@@ -667,9 +688,9 @@ interface CancelConfig {
 interface RetryConfig {
   enabled?: boolean;                  // 默认 false
   maxRetries?: number;                // 默认 3
-  delay?: number;                     // 默认 100（毫秒）
+  retryDelay?: number;                // 默认 100（毫秒）
   exponentialBackoff?: boolean;       // 默认 false
-  shouldRetry?: (error: any, retryCount: number) => boolean;
+  retryCondition?: (error: any, retryCount: number) => boolean;
 }
 ```
 
@@ -745,9 +766,7 @@ await client.post('/upload', formData, {
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: {
-    withCredentials: true,  // 允许携带 cookie
-  },
+  withCredentials: true,  // 允许携带 cookie
 });
 ```
 
@@ -755,10 +774,8 @@ const client = new AxiosRequest({
 
 ```typescript
 const client = new AxiosRequest({
-  axiosConfig: {
-    headers: {
-      'X-App-Version': '1.0.0',
-    },
+  headers: {
+    'X-App-Version': '1.0.0',
   },
 });
 ```
@@ -786,6 +803,109 @@ try {
     console.log('请求超时');
   }
 }
+```
+
+### Q: 单个请求配置会影响实例配置吗？
+
+不会。所有管理器都采用"请求上下文"机制，单个请求的配置只在当前请求生效，不会修改实例级别的配置。
+
+```typescript
+const client = new AxiosRequest({
+  dedupe: { timeWindow: 1000 },  // 实例配置
+});
+
+// 单个请求的配置只对当前请求生效
+await client.post('/api', data, { dedupe: { timeWindow: 5000 } });
+
+// 验证：实例配置未被修改
+client.getInstanceConfig().dedupe.timeWindow === 1000;  // true
+```
+
+### Q: 如何为单个请求创建临时管理器？
+
+当实例没有配置某个管理器，但某个请求需要该功能时，会自动创建临时管理器：
+
+```typescript
+const client = new AxiosRequest({
+  // 没有配置 retry
+});
+
+// 单个请求启用重试（自动创建临时管理器）
+await client.get('/unreliable', { retry: 5 });
+```
+
+---
+
+### 8. 管理器架构设计
+
+本库采用统一的管理器架构，所有功能（Token、Dedupe、Cancel、Retry）都遵循相同的设计原则。
+
+#### 核心规则
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. 请求禁用 (xxx: false)      → 无管理器                   │
+│ 2. 实例有管理器               → 复用实例管理器              │
+│ 3. 实例无管理器，请求有配置   → 创建临时管理器              │
+│ 4. 实例无管理器，请求无配置   → 无管理器                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 设计优势
+
+1. **统一管理**：实例级别的管理器统一管理所有请求
+2. **上下文隔离**：每个请求通过独立的上下文对象实现隔离，无 Map 存储
+3. **零清理负担**：上下文是普通对象，引用丢失即被 GC，无需手动清理
+4. **配置不污染**：单个请求的配置只在当前请求生效，不影响实例配置
+
+#### 上下文即对象
+
+与传统基于 `requestId + Map` 的方式不同，本库采用**上下文即对象**的设计：
+
+```typescript
+// 传统方式：需要 requestId 和 Map
+manager.setRequestContext(requestId, { enabled: false });
+manager.shouldDedupe(requestId, config);
+manager.clearRequestContext(requestId);  // 需要手动清理
+
+// 本库方式：上下文就是普通对象
+const ctx = manager.createContext({ enabled: false });
+manager.shouldDedupe(ctx, config);
+// 无需清理，对象引用丢失即被 GC
+```
+
+#### 请求上下文机制
+
+```typescript
+// 实例有管理器时，请求配置通过上下文覆盖
+client.post('/users', data, {
+  dedupe: { timeWindow: 5000 },  // 只覆盖 timeWindow，其他使用实例配置
+});
+
+// 实例无管理器时，自动创建临时管理器
+client.post('/special', data, {
+  dedupe: { enabled: true, timeWindow: 2000 },  // 创建临时管理器
+});
+```
+
+#### 配置不污染验证
+
+```typescript
+const client = new AxiosRequest({
+  dedupe: {
+    enabled: true,
+    timeWindow: 1000,
+    methods: ['POST'],
+  },
+});
+
+// 单个请求配置不影响实例配置
+client.post('/users', data, {
+  dedupe: { timeWindow: 5000 },  // 只对当前请求生效
+});
+
+// 验证实例配置未被修改
+client.getInstanceConfig().dedupe.timeWindow === 1000;  // true
 ```
 
 ---

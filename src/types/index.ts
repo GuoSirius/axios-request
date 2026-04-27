@@ -28,8 +28,10 @@ export type TokenRefreshFailureReason = 'unauthorized' | 'forbidden' | 'invalid_
  * Token管理器配置
  */
 export interface TokenManagerConfig {
-  /** 判断响应是否表示token失效 */
+  /** 判断响应错误是否表示token失效（检查 error.response） */
   isTokenExpired: (error: any) => boolean;
+  /** 判断正常响应是否表示token失效（检查 response.data，可选） */
+  isTokenExpiredFromResponse?: (response: any) => boolean;
   /** 刷新token的函数，由使用者实现 */
   refreshToken: (error: any) => Promise<TokenRefreshResult>;
   /** 获取当前access_token的函数 */
@@ -65,12 +67,12 @@ export interface DedupeConfig {
   /** 是否启用防重复提交，默认 true */
   enabled?: boolean;
   /** 防重复提交的时间窗口（毫秒），默认 1000ms */
-  duration?: number;
+  timeWindow?: number;
   /** 需要防重复提交的方法，默认 ['POST', 'PUT', 'PATCH', 'DELETE'] */
   methods?: string[];
   /**
    * 自定义生成请求 key 的方式
-   * - 函数：直接使用该函数
+   * - 函数：直接使用该函数生成唯一 key
    * - 字符串：使用该字符串作为分隔符，从 config 中提取对应字段拼接
    *   例如：'method:url'、'method:url:data.id'
    *   特殊值：'only-url' 表示只用 url 作为 key
@@ -102,13 +104,20 @@ export interface RetryConfig {
   enabled?: boolean;
   /** 最大重试次数，默认 3 */
   maxRetries?: number;
-  /** 重试延迟（毫秒），默认 100ms */
-  delay?: number;
-  /** 是否使用指数退避策略，默认 false */
+  /** 每次重试的延迟时间（毫秒），默认 100ms */
+  retryDelay?: number;
+  /** 启用后重试延迟会指数增长（100ms → 200ms → 400ms...），默认 false */
   exponentialBackoff?: boolean;
-  /** 判断哪些错误需要重试，默认网络错误和5xx错误 */
-  shouldRetry?: (error: any, retryCount: number) => boolean;
+  /** 判断哪些错误需要重试，返回 true 则重试，默认网络错误和5xx错误 */
+  retryCondition?: (error: any, retryCount: number) => boolean;
 }
+
+/**
+ * Token简写类型
+ * - boolean: 启用/禁用（启用时需要提供具体配置）
+ * - object: 完整配置对象
+ */
+export type TokenShortcut = TokenManagerConfig | boolean;
 
 /**
  * 防重复提交简写类型
@@ -134,13 +143,13 @@ export type CancelShortcut = CancelConfig | boolean | GenerateKeyFunction | stri
  * 请求重试简写类型
  * - boolean: 启用/禁用
  * - number: 启用并设置 maxRetries
- * - function: 直接作为 shouldRetry
+ * - function: 直接作为 retryCondition
  * - object: 完整配置对象
  */
 export type RetryShortcut = RetryConfig | boolean | number | ((error: any, retryCount: number) => boolean);
 
 /**
- * AxiosRequest配置（扩展axios配置）
+ * AxiosRequest单个请求配置（扩展axios配置）
  */
 export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
   /**
@@ -152,28 +161,26 @@ export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
    */
   contentType?: ContentType;
   /** Token管理配置 */
-  _token?: TokenManagerConfig | boolean;
+  token?: TokenManagerConfig | boolean;
   /** 防重复提交配置，支持简写 */
-  _dedupe?: DedupeShortcut;
+  dedupe?: DedupeShortcut;
   /** 请求取消配置，支持简写 */
-  _cancel?: CancelShortcut;
+  cancel?: CancelShortcut;
   /** 请求重试配置，支持简写 */
-  _retry?: RetryShortcut;
+  retry?: RetryShortcut;
 }
 
 /**
- * AxiosRequest实例配置
+ * AxiosRequest实例配置（直接继承axios配置，扩展新功能）
  */
-export interface AxiosRequestInstanceConfig {
-  /** 基础axios配置 */
-  axiosConfig?: AxiosRequestConfig;
-  /** 全局Token管理配置 */
-  tokenManager?: TokenManagerConfig;
-  /** 全局防重复提交配置，支持简写 */
+export interface AxiosRequestInstanceConfig extends AxiosRequestConfig {
+  /** Token管理配置 */
+  token?: TokenManagerConfig;
+  /** 防重复提交配置，支持简写 */
   dedupe?: DedupeShortcut;
-  /** 全局请求取消配置，支持简写 */
+  /** 请求取消配置，支持简写 */
   cancel?: CancelShortcut;
-  /** 全局请求重试配置，支持简写 */
+  /** 请求重试配置，支持简写 */
   retry?: RetryShortcut;
 }
 
@@ -181,6 +188,8 @@ export interface AxiosRequestInstanceConfig {
  * 请求队列项
  */
 export interface QueueItem {
+  /** 请求唯一标识 */
+  requestId: string;
   /** 原始请求配置 */
   config: AxiosRequestConfig;
   /** 解析函数 */

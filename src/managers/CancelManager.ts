@@ -1,59 +1,79 @@
 import { AxiosRequestConfig } from 'axios';
-import { CancelConfig, GenerateKeyFunction } from '../types';
+import { CancelConfig, CancelShortcut, GenerateKeyFunction } from '../types';
 import { normalizeGenerateKey } from '../utils/requestKey';
+
+const defaultMethods = ['GET'];
+
+/**
+ * Cancel上下文 - 每个请求独立的取消配置
+ */
+interface CancelContext {
+  enabled: boolean;
+  methods: string[];
+  generateKey: (config: AxiosRequestConfig) => string;
+}
+
+/**
+ * 规范化 CancelConfig
+ */
+function normalizeConfig(config: CancelShortcut): Partial<CancelConfig> {
+  if (!config) return {};
+  if (config === true) return { enabled: true };
+  if (Array.isArray(config)) return { enabled: true, methods: config.map(m => String(m).toUpperCase()) };
+  if (typeof config === 'string') return { enabled: true, generateKey: config };
+  if (typeof config === 'function') return { enabled: true, generateKey: config };
+  return { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) };
+}
 
 /**
  * 请求取消管理器（用于搜索等场景，自动取消上次请求）
  */
 export class CancelManager {
-  private config: CancelConfig & { generateKey: GenerateKeyFunction };
+  private defaultConfig: CancelContext;
   private pendingRequests: Map<string, AbortController> = new Map();
 
-  constructor(config: CancelConfig = {}) {
-    const defaultMethods = ['GET'];
-    // 标准化配置（methods 统一转为大写）
-    this.config = {
-      ...config,
-      enabled: config.enabled ?? true,
-      methods: (config.methods ?? defaultMethods).map((m) => String(m).toUpperCase()),
-      generateKey: normalizeGenerateKey(config.generateKey),
-    } as CancelConfig & { generateKey: GenerateKeyFunction };
+  constructor(config: CancelShortcut = {}) {
+    const normalized = normalizeConfig(config);
+    this.defaultConfig = {
+      enabled: normalized.enabled ?? true,
+      methods: normalized.methods ?? defaultMethods,
+      generateKey: normalizeGenerateKey(normalized.generateKey),
+    };
+  }
+
+  /**
+   * 创建请求上下文
+   */
+  createContext(override?: Partial<CancelContext>): CancelContext {
+    return {
+      enabled: override?.enabled ?? this.defaultConfig.enabled,
+      methods: override?.methods ?? this.defaultConfig.methods,
+      generateKey: override?.generateKey ?? this.defaultConfig.generateKey,
+    };
   }
 
   /**
    * 检查是否应该处理该请求
    */
-  shouldCancel(config: AxiosRequestConfig): boolean {
-    if (!this.config.enabled) {
-      return false;
-    }
-
+  shouldCancel(context: CancelContext, config: AxiosRequestConfig): boolean {
+    if (!context.enabled) return false;
     const method = (config.method || 'get').toUpperCase();
-    return (this.config.methods || []).includes(method);
+    return context.methods.includes(method);
   }
 
   /**
    * 处理请求（取消上次的相同请求）
    */
-  setupCancel(config: AxiosRequestConfig): AxiosRequestConfig {
-    const key = this.config.generateKey(config);
+  setupCancel(context: CancelContext, config: AxiosRequestConfig): AxiosRequestConfig {
+    const key = context.generateKey(config);
 
-    // 如果已有相同请求，取消它
-    if (this.pendingRequests.has(key)) {
-      this.pendingRequests.get(key)?.abort();
-    }
+    this.pendingRequests.get(key)?.abort();
 
-    // 创建新的 AbortController
     const controller = new AbortController();
     this.pendingRequests.set(key, controller);
 
-    // 修改请求配置，添加 signal
     const newConfig = { ...config, signal: controller.signal };
-
-    // 请求完成后，从 pending 中移除
-    controller.signal.addEventListener('abort', () => {
-      this.pendingRequests.delete(key);
-    });
+    controller.signal.addEventListener('abort', () => this.pendingRequests.delete(key));
 
     return newConfig;
   }
@@ -62,9 +82,7 @@ export class CancelManager {
    * 清除所有待处理的请求
    */
   clear(): void {
-    this.pendingRequests.forEach((controller) => {
-      controller.abort();
-    });
+    this.pendingRequests.forEach((c) => c.abort());
     this.pendingRequests.clear();
   }
 }

@@ -6,10 +6,10 @@ export { AxiosRequest } from './core/AxiosRequest';
 export * from './types';
 
 // 导出管理器（高级用法）
-export { TokenManager } from './managers/TokenManager';
-export { DedupeManager } from './managers/DedupeManager';
-export { CancelManager } from './managers/CancelManager';
-export { RetryManager } from './managers/RetryManager';
+export { TokenManager, normalizeTokenConfig } from './managers/TokenManager';
+export { DedupeManager, normalizeDedupeConfig } from './managers/DedupeManager';
+export { CancelManager, normalizeCancelConfig } from './managers/CancelManager';
+export { RetryManager, normalizeRetryConfig } from './managers/RetryManager';
 
 // 导出工具函数
 export { generateRequestKey } from './utils/requestKey';
