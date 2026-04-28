@@ -73,27 +73,12 @@ const typeConfig = {
   other: { title: '其他', emoji: '📌' }
 };
 
-// 文本换行（保持缩进）
-function wrapText(text, maxLength = 80, indent = '  ') {
-  const lines = [];
-  let currentLine = '';
-
-  const words = text.split(' ');
-  for (const word of words) {
-    if (currentLine.length === 0) {
-      currentLine = word;
-    } else if (currentLine.length + 1 + word.length <= maxLength) {
-      currentLine += ' ' + word;
-    } else {
-      lines.push(currentLine);
-      currentLine = indent + word;
-    }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-
-  return lines.join('\n');
+// 处理 commit 消息中的换行符，将其拆分为多行
+function splitCommitMessage(message) {
+  // 统一处理 \r\n 和 \n
+  const normalized = message.replace(/\r\n?/g, '\n');
+  // 按换行分割并过滤空行
+  return normalized.split('\n').map(line => line.trim()).filter(Boolean);
 }
 
 // 生成当前版本的 changelog 内容
@@ -113,7 +98,6 @@ function generateVersionChangelog(commits, version, date) {
 
   // 生成 markdown
   const lines = [];
-  let globalIndex = 1;
 
   lines.push(`## ${version} (${date})`);
   lines.push('');
@@ -129,17 +113,16 @@ function generateVersionChangelog(commits, version, date) {
     lines.push('');
 
     for (const commit of groups[type]) {
-      const numStr = String(globalIndex).padStart(2, '0');
-      const prefix = `**${numStr}.** `;
-      const prefixLen = prefix.length;
+      // 处理换行符，将一条 commit 拆分为多条
+      const messages = splitCommitMessage(commit.subject);
 
-      if (type === 'other') {
-        const subject = `${commit.subject} (${commit.hash})`;
-        lines.push(wrapText(prefix + subject, 80, ' '.repeat(prefixLen)));
-      } else {
-        lines.push(wrapText(prefix + commit.subject, 80, ' '.repeat(prefixLen)));
+      for (const msg of messages) {
+        if (type === 'other') {
+          lines.push(`- ${msg} (${commit.hash})`);
+        } else {
+          lines.push(`- ${msg}`);
+        }
       }
-      globalIndex++;
     }
   }
 
@@ -234,11 +217,6 @@ ${oldAutoContent ? '\n\n' + oldAutoContent : ''}`;
   }
 
   console.log('✅ Changelog 生成完成');
-}
-
-// 转义正则特殊字符
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // 查找版本块的结束位置（下一个 ## 或文件末尾）
