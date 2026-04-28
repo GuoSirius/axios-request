@@ -26,7 +26,11 @@ function getPreviousTag(currentTag) {
       .split('\n')
       .map(t => t.trim())
       .filter(Boolean);
-    const currentIndex = tags.indexOf(currentTag);
+    
+    // 标准化 tag：确保 currentTag 带 v 前缀
+    const normalizedCurrent = currentTag.startsWith('v') ? currentTag : `v${currentTag}`;
+    
+    const currentIndex = tags.indexOf(normalizedCurrent);
     if (currentIndex >= 0 && currentIndex < tags.length - 1) {
       return tags[currentIndex + 1];
     }
