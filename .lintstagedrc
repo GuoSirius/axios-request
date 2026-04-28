@@ -1,0 +1,10 @@
+{
+  "src/**/*.ts": [
+    "tsc --noEmit",
+    "eslint src --ext .ts"
+  ],
+  "__tests__/**/*.test.ts": [
+    "vitest run"
+  ],
+  "vitest.config.ts": []
+}

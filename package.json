@@ -1,6 +1,6 @@
 {
   "name": "axios-request",
-  "version": "1.0.6",
+  "version": "1.1.0",
   "type": "module",
   "description": "基于axios的增强请求库，支持token自动刷新、防重复提交、请求取消、失败重试等功能",
   "main": "dist/axios-request.cjs.js",
@@ -29,8 +29,9 @@
     "test": "vitest run",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
-    "validate": "npm run typecheck && npm run lint && npm run test",
-    "publish": "node scripts/release.js"
+    "guard": "npm run typecheck && npm run lint && npm run test",
+    "release": "node scripts/release.js",
+    "prepare": "husky install"
   },
   "keywords": [
     "axios",
@@ -45,10 +46,6 @@
   "license": "MIT",
   "engines": {
     "node": ">=24"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://gitee.com/siriussupreme/axios-request.git"
   },
   "bugs": {
     "url": "https://gitee.com/siriussupreme/axios-request/issues"
@@ -69,25 +66,12 @@
     "@typescript-eslint/parser": "^6.0.0",
     "axios": "^1.6.0",
     "eslint": "^8.0.0",
-    "husky": "^8.0.0",
+    "husky": "^9.0.0",
     "lint-staged": "^15.0.0",
     "rollup": "^4.0.0",
     "rollup-plugin-dts": "^6.4.1",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "commitlint --edit --config commitlint.config.cjs"
-    }
-  },
-  "lint-staged": {
-    "*.ts": [
-      "npm run typecheck",
-      "npm run lint",
-      "vitest run"
-    ]
   }
 }

@@ -1,5 +1,5 @@
 import { AxiosRequestConfig } from 'axios';
-import { CancelConfig, CancelShortcut, GenerateKeyFunction } from '../types';
+import { CancelConfig, CancelShortcut } from '../types';
 import { normalizeGenerateKey } from '../utils/requestKey';
 
 const defaultMethods = ['GET'];

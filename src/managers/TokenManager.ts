@@ -1,7 +1,6 @@
 import { AxiosRequestConfig } from 'axios';
 import {
   TokenManagerConfig,
-  TokenRefreshResult,
   TokenRefreshFailureReason,
 } from '../types';
 
@@ -114,7 +113,7 @@ export class TokenManager {
   /**
    * 将请求加入队列
    */
-  private enqueueRequest(config: AxiosRequestConfig): Promise<any> {
+  private enqueueRequest(_config: AxiosRequestConfig): Promise<any> {
     return new Promise((resolve, reject) => {
       this.requestQueue.push({ resolve, reject });
     });

@@ -941,49 +941,110 @@ const { AxiosRequest } = require('axios-request');
 
 - Node.js >= 24
 
-### 开发命令
+### 安装与初始化
 
 ```bash
 # 安装依赖
 npm install
 
-# 开发模式（监听文件变化）
-npm run dev
-
-# 类型检查
-npm run typecheck
-
-# 代码检查
-npm run lint
-
-# 运行测试
-npm run test
-
-# 验证（类型检查 + lint + 测试）
-npm run validate
-
-# 构建
-npm run build
+# 初始化 husky（首次安装后执行一次）
+npm run prepare
 ```
 
-### 一键发布
+### 开发命令
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 开发模式，监听文件变化并自动构建 |
+| `npm run build` | 构建项目，生成 dist 文件 |
+| `npm run test` | 运行测试 |
+| `npm run lint` | 代码检查 |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm run guard` | **提交前检查**：类型检查 + lint + 测试，全部通过才能提交 |
+| `npm run release` | 发布版本：验证 → 构建 → 更新版本 → 生成 Changelog → 提交 → 推送 → 打标签 |
+
+### 提交代码流程
+
+```
+1. 修改代码
+2. 运行 npm run guard 验证代码质量
+3. 如果验证通过，执行 git commit -m "类型(范围): 描述"
+4. 完成提交
+```
+
+**提交信息格式**（必须符合 Conventional Commits）：
+
+```
+类型(范围): 描述
+
+# 示例
+feat(core): 新增 Token 自动刷新功能
+fix(utils): 修复 FormData 转换日期格式错误
+docs: 更新 README
+refactor(types): 重构类型定义
+```
+
+**可选的类型**：
+- `feat` - 新功能
+- `fix` - Bug 修复
+- `docs` - 文档更新
+- `style` - 代码格式
+- `refactor` - 重构
+- `perf` - 性能优化
+- `test` - 测试
+- `build` - 构建或依赖
+- `ci` - CI/CD
+- `chore` - 其他修改
+- `revert` - 回滚
+
+**可选的范围**：`core`、`types`、`utils`、`test`、`docs`、`workflow`、`config`、`deps`、`release`
+
+### 发布版本流程
 
 ```bash
-# 交互模式（自动完成：验证 → 构建 → 更新版本 → 生成changelog → 提交 → 推送 → 打标签）
-npm run publish
+# 交互式发布（推荐）
+npm run release
 
-# 指定版本发布
-npm run publish -- 1.0.1
-npm run publish -- 1.0.1 "feat: 新增xxx功能"
+# 自动发布
+npm run release -- patch    # 自动 patch 版本 (1.0.0 → 1.0.1)
+npm run release -- minor    # 自动 minor 版本 (1.0.0 → 1.1.0)
+npm run release -- major    # 自动 major 版本 (1.0.0 → 2.0.0)
+npm run release -- 1.2.3   # 指定版本号
 ```
+
+发布命令会自动完成：
+1. 验证代码（typecheck → lint → test）
+2. 构建项目
+3. 更新 package.json 版本号
+4. 生成 CHANGELOG.md
+5. Git 提交
+6. 推送到 origin (gitee)
+7. 推送到 github（如果已配置）
+8. 创建并推送 Git tag
 
 推送标签后，GitHub Actions 自动：安装依赖 → 测试 → 构建 → 发布 npm
 
-### GitHub 远程配置（可选）
+### 双仓库推送
+
+项目支持同时推送到 Gitee (origin) 和 GitHub：
 
 ```bash
-git remote add github https://github.com/your-username/axios-request.git
+# 添加 GitHub 远程仓库（首次）
+git remote add github https://github.com/GuoSirius/axios-request.git
+
+# 发布时会自动推送到两个仓库
 ```
+
+### Git Hooks
+
+项目使用 husky 管理 Git hooks：
+
+| Hook | 时机 | 作用 |
+|------|------|------|
+| `pre-commit` | 提交前 | 自动检查暂存的 .ts 文件（typecheck + lint + test） |
+| `commit-msg` | 提交信息 | 验证提交信息是否符合 Conventional Commits 格式 |
+
+如果 `pre-commit` 失败，检查输出并修复问题后重新提交。
 
 ---
 

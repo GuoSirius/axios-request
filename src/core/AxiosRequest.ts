@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import {
   AxiosRequestInstanceConfig,
   AxiosRequestConfigExtended,
@@ -211,7 +211,7 @@ export class AxiosRequest {
     if (!config.contentType) return config;
     
     const contentType = config.contentType;
-    let finalConfig = { ...config };
+    const finalConfig = { ...config };
 
     if (contentType === 'json') {
       finalConfig.headers = { ...finalConfig.headers, 'Content-Type': 'application/json;charset=UTF-8' };
@@ -246,27 +246,23 @@ export class AxiosRequest {
     const ctx = this.createRequestContext(finalConfig);
     finalConfig._context = ctx;
 
-    try {
-      // 防重复提交
-      if (ctx.dedupe && this.dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
-        return await this.dedupeManager.dedupe(
-          ctx.dedupe,
-          finalConfig,
-          () => this.instance.request<T>(finalConfig).then(r => r.data)
-        );
-      }
-
-      // 请求取消
-      if (ctx.cancel && this.cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
-        finalConfig = this.cancelManager.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
-      }
-
-      // 发起请求
-      const response = await this.instance.request<T>(finalConfig);
-      return response.data;
-    } catch (error) {
-      throw error;
+    // 防重复提交
+    if (ctx.dedupe && this.dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
+      return await this.dedupeManager.dedupe(
+        ctx.dedupe,
+        finalConfig,
+        () => this.instance.request<T>(finalConfig).then(r => r.data)
+      );
     }
+
+    // 请求取消
+    if (ctx.cancel && this.cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
+      finalConfig = this.cancelManager.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
+    }
+
+    // 发起请求
+    const response = await this.instance.request<T>(finalConfig);
+    return response.data;
   }
 
   // ========== 便捷方法 ==========
