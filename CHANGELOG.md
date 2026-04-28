@@ -6,6 +6,17 @@
 
 <!-- AUTO_GENERATED -->
 
+## 1.2.9 (2026-04-28)
+
+### 🐛 Bug 修复
+
+- 完善 changelog 生成逻辑，支持过滤 release 提交
+- 修复 release 模式下 tag 前缀不匹配导致 changelog 为空的问题
+### 🔧 构建/工具
+
+- 添加 release-body.md 到 .gitignore
+
+
 ## 1.2.8 (2026-04-28)
 
 ### 🐛 Bug 修复

@@ -1,6 +1,6 @@
 {
   "name": "axios-request",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "type": "module",
   "description": "基于axios的增强请求库，支持token自动刷新、防重复提交、请求取消、失败重试等功能",
   "main": "dist/axios-request.cjs.js",
