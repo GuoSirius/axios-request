@@ -73,47 +73,77 @@ const typeConfig = {
   other: { title: '其他', emoji: '📌' }
 };
 
+// 文本换行（保持缩进）
+function wrapText(text, maxLength = 80, indent = '  ') {
+  const lines = [];
+  let currentLine = '';
+
+  const words = text.split(' ');
+  for (const word of words) {
+    if (currentLine.length === 0) {
+      currentLine = word;
+    } else if (currentLine.length + 1 + word.length <= maxLength) {
+      currentLine += ' ' + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = indent + word;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines.join('\n');
+}
+
 // 生成当前版本的 changelog 内容
 function generateVersionChangelog(commits, version, date) {
   const groups = {};
-  
+
   // 分组
   for (const commit of commits) {
     const parsed = parseCommit(commit);
     const type = parsed.type;
-    
+
     if (!groups[type]) {
       groups[type] = [];
     }
     groups[type].push(parsed);
   }
-  
+
   // 生成 markdown
   const lines = [];
-  
+  let globalIndex = 1;
+
   lines.push(`## ${version} (${date})`);
   lines.push('');
-  
+
   // 按优先级排序输出
   const order = ['feat', 'fix', 'perf', 'refactor', 'docs', 'style', 'test', 'chore', 'ci', 'revert', 'other'];
-  
+
   for (const type of order) {
     if (!groups[type]) continue;
-    
+
     const config = typeConfig[type];
     lines.push(`### ${config.emoji} ${config.title}`);
     lines.push('');
-    
+
     for (const commit of groups[type]) {
+      const numStr = String(globalIndex).padStart(2, '0');
+      const prefix = `**${numStr}.** `;
+      const prefixLen = prefix.length;
+
       if (type === 'other') {
-        lines.push(`- ${commit.subject} (${commit.hash})`);
+        const subject = `${commit.subject} (${commit.hash})`;
+        lines.push(wrapText(prefix + subject, 80, ' '.repeat(prefixLen)));
       } else {
-        lines.push(`- ${commit.subject}`);
+        lines.push(wrapText(prefix + commit.subject, 80, ' '.repeat(prefixLen)));
       }
+      globalIndex++;
     }
     lines.push('');
   }
-  
+
   return lines.join('\n');
 }
 
