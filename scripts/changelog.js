@@ -148,9 +148,13 @@ function generateVersionChangelog(commits, version, date) {
 
 // 主函数
 function main() {
-  // 支持命令行参数传入版本号（CI 环境使用）
+  // 支持命令行参数
+  //   node scripts/changelog.js [version] [--replace]
+  //   - version: 版本号（CI 环境使用）
+  //   - --replace: 替换模式，只更新当前版本内容，不重新生成历史
   const args = process.argv.slice(2);
   const cliVersion = args[0];
+  const replaceMode = args.includes('--replace');
 
   const latestTag = getLatestTag();
   console.log(`最新 tag: ${latestTag || '无'}`);
@@ -167,37 +171,80 @@ function main() {
   const version = cliVersion || JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')).version;
   console.log(`生成版本: ${version}`);
   const date = new Date().toISOString().split('T')[0];
-  
+
   const changelog = generateVersionChangelog(commits, version, date);
-  
-  // 读取现有的 CHANGELOG.md
+
   const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
-  let manualContent = '';
-  let oldAutoContent = '';
 
-  if (fs.existsSync(changelogPath)) {
-    const fullContent = fs.readFileSync(changelogPath, 'utf-8');
-    // 移除旧的自动生成部分，保留手动部分
-    const autoIndex = fullContent.indexOf('<!-- AUTO_GENERATED -->');
-    if (autoIndex !== -1) {
-      manualContent = fullContent.substring(0, autoIndex).trim();
-      // 保留旧的自动生成部分
-      oldAutoContent = fullContent.substring(autoIndex + '<!-- AUTO_GENERATED -->'.length).trim();
+  if (replaceMode) {
+    // 替换模式：只更新当前版本内容，保留历史
+    if (fs.existsSync(changelogPath)) {
+      const fullContent = fs.readFileSync(changelogPath, 'utf-8');
+      const autoIndex = fullContent.indexOf('<!-- AUTO_GENERATED -->');
+
+      if (autoIndex !== -1) {
+        const beforeAuto = fullContent.substring(0, autoIndex);
+        // 查找当前版本的起始位置（## version (date)）
+        const existingVersionIndex = fullContent.indexOf(`## ${version} (${date})`, autoIndex);
+
+        if (existingVersionIndex !== -1) {
+          // 找到已存在的版本，替换它
+          const endOfVersion = findEndOfVersion(fullContent, existingVersionIndex);
+          const newAutoContent = fullContent.substring(autoIndex + '<!-- AUTO_GENERATED -->'.length, existingVersionIndex).trim()
+            + (fullContent.substring(autoIndex + '<!-- AUTO_GENERATED -->'.length, existingVersionIndex).trim() ? '\n\n' : '')
+            + changelog
+            + (endOfVersion ? '\n\n' + fullContent.substring(endOfVersion).trim() : '');
+          fs.writeFileSync(changelogPath, beforeAuto + '<!-- AUTO_GENERATED -->\n\n' + newAutoContent.trim() + '\n');
+        } else {
+          // 未找到当前版本，在最前面插入
+          const oldAutoContent = fullContent.substring(autoIndex + '<!-- AUTO_GENERATED -->'.length).trim();
+          const newAutoContent = changelog + (oldAutoContent ? '\n\n' + oldAutoContent : '');
+          fs.writeFileSync(changelogPath, beforeAuto + '<!-- AUTO_GENERATED -->\n\n' + newAutoContent + '\n');
+        }
+      } else {
+        // 没有标记，创建标记
+        fs.writeFileSync(changelogPath, fullContent.trim() + '\n\n<!-- AUTO_GENERATED -->\n\n' + changelog + '\n');
+      }
     } else {
-      // 没有标记，说明是旧的 changelog 文件，保留整个内容作为旧自动生成
-      oldAutoContent = fullContent.trim();
+      fs.writeFileSync(changelogPath, '<!-- AUTO_GENERATED -->\n\n' + changelog + '\n');
     }
-  }
+  } else {
+    // 完整模式：重新生成所有版本（本地使用）
+    let manualContent = '';
+    let oldAutoContent = '';
 
-  // 写入新的 changelog（新版本始终插入到最前面）
-  const header = manualContent ? `${manualContent}\n\n` : '';
-  const newContent = `${header}<!-- AUTO_GENERATED -->
+    if (fs.existsSync(changelogPath)) {
+      const fullContent = fs.readFileSync(changelogPath, 'utf-8');
+      const autoIndex = fullContent.indexOf('<!-- AUTO_GENERATED -->');
+      if (autoIndex !== -1) {
+        manualContent = fullContent.substring(0, autoIndex).trim();
+        oldAutoContent = fullContent.substring(autoIndex + '<!-- AUTO_GENERATED -->'.length).trim();
+      } else {
+        oldAutoContent = fullContent.trim();
+      }
+    }
+
+    const header = manualContent ? `${manualContent}\n\n` : '';
+    const newContent = `${header}<!-- AUTO_GENERATED -->
 
 ${changelog}
 ${oldAutoContent ? '\n\n' + oldAutoContent : ''}`;
 
-  fs.writeFileSync(changelogPath, newContent);
+    fs.writeFileSync(changelogPath, newContent);
+  }
+
   console.log('✅ Changelog 生成完成');
+}
+
+// 转义正则特殊字符
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// 查找版本块的结束位置（下一个 ## 或文件末尾）
+function findEndOfVersion(content, startIndex) {
+  const nextVersion = content.indexOf('\n## ', startIndex + 4);
+  return nextVersion !== -1 ? nextVersion : -1;
 }
 
 main();
