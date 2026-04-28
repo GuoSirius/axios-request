@@ -28,7 +28,8 @@ const c = {
   blue: '\x1b[34m',
   cyan: '\x1b[36m',
   reset: '\x1b[0m',
-  bold: '\x1b[1m'
+  bold: '\x1b[1m',
+  dim: '\x1b[2m'
 };
 
 const log = {
