@@ -75,8 +75,10 @@ const typeConfig = {
 
 // 处理 commit 消息中的换行符，将其拆分为多行
 function splitCommitMessage(message) {
-  // 统一处理 \r\n 和 \n
-  const normalized = message.replace(/\r\n?/g, '\n');
+  // 先处理真正的换行符
+  let normalized = message.replace(/\r\n?/g, '\n');
+  // 再处理字面的 \n 字符串（用户在命令行输入的转义序列）
+  normalized = normalized.replace(/\\n/g, '\n');
   // 按换行分割并过滤空行
   return normalized.split('\n').map(line => line.trim()).filter(Boolean);
 }
