@@ -38,9 +38,10 @@ jobs:
       - name: Run tests
         run: npm run test
 
-  # 构建（所有触发都会执行）
+  # 构建（等待 validate 通过后再执行）
   build:
     runs-on: ubuntu-latest
+    needs: validate
 
     steps:
       - name: Checkout
