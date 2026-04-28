@@ -8,60 +8,156 @@
 
 ## 1.2.7 (2026-04-28)
 
+### 🐛 Bug 修复
 
+- 修复 release 模式下 changelog 为空的问题
+
+## 1.2.6 (2026-04-28)
+
+### 🐛 Bug 修复
+
+- 优化 release 工作流，复用 build 产物
 
 ## 1.2.5 (2026-04-28)
 
 ### ⚡ 性能优化
 
 - 优化发布信息
-- 修复release
-
+- 修复 release
 
 ## 1.2.4 (2026-04-28)
 
 ### 🐛 Bug 修复
 
 - 修复换行
+
 ### ⚡ 性能优化
 
-- 优化release信息
-- 优化changelog
-
+- 优化 release 信息
+- 优化 changelog
 
 ## 1.2.3 (2026-04-28)
 
 ### ⚡ 性能优化
 
-- 1、优化changelog生成\n自动换行
+- 优化 changelog 生成，自动换行
 - 优化发布信息
-
 
 ## 1.2.2 (2026-04-28)
 
 ### 🐛 Bug 修复
 
-**01.** 1、测试一下changelog的版本号\n2、验证是否正确
-
+- 测试一下 changelog 的版本号
+- 验证是否正确
 
 ## 1.2.1 (2026-04-28)
 
 ### ⚡ 性能优化
 
-**01.** 测试changelog
-
-
+- 测试 changelog
 
 ## 1.2.0 (2026-04-28)
 
 ### 🔧 构建/工具
 
-- 1、优化changelog\r\n2、优化release
-
-
+- 优化 changelog
+- 优化 release
 
 ## 1.1.1 (2026-04-28)
 
 ### 🔧 构建/工具
 
 - 优化工程化流程
+
+## 1.1.0 (2026-04-28)
+
+### 🐛 Bug 修复
+
+- 修复类型错误和移除已废弃的导出
+
+### ♻️ 代码重构
+
+- 采用'上下文即对象'架构，消除 Map 冗余存储
+
+## 1.0.10 (2026-04-27)
+
+### 🐛 Bug 修复
+
+- validate 和 build 在所有触发时执行，release 仅 tag 时
+- 添加 GitHub Actions 写入权限
+- 移除 release job 的 needs 依赖
+- 修复 workflow YAML 格式
+
+### 🔧 构建/工具
+
+- 合并 workflow，修复 changelog 倒序排列
+
+## 1.0.5 (2026-04-27)
+
+### 📝 文档更新
+
+- update readme
+
+## 1.0.4 (2026-04-27)
+
+### 🔧 构建/工具
+
+- delete mirror
+
+## 1.0.3 (2026-04-27)
+
+### ✨ 新功能
+
+- add release
+
+## 1.0.2 (2026-04-26)
+
+### ✨ 新功能
+
+- CI release 上传构建产物到 GitHub Release
+- CI 自动发布 tag 版本
+- 发布流程优化 - typecheck + 打标签确认 + main 分支
+
+## 1.0.1 (2026-04-26)
+
+### 🔧 构建/工具
+
+- add typecheck
+
+### 🐛 Bug 修复
+
+- 修复交互式发布脚本
+- 恢复 typecheck 脚本
+
+### ♻️ 代码重构
+
+- 简化发布流程，统一为一条命令
+
+### ✨ 新功能
+
+- 配置 CI/CD 工作流和发布脚本
+
+### ⚡ 性能优化
+
+- 优化开发流程 - 一键发布脚本 + Node 24
+- 新增数组简写配置和自定义 token 赋值方式
+- support shorthand config for generateKey and shouldRetry
+- add FormData utility and support ESM/CJS/UMD bundles
+- generateKey 支持字符串简写，优化配置序列化逻辑
+- 新增 contentType 配置，简化 Content-Type 设置
+- 支持简写配置形式，类型定义默认值注释与实现一致
+
+### 📝 文档更新
+
+- 更新入口文件注释
+
+### ✨ 新功能
+
+- 添加提交规范、lint-staged 和完整使用文档
+- method 转为大写，取消请求和防重复提交默认开启
+
+## 1.0.0 (2026-04-26)
+
+### ✨ 新功能
+
+- Initial commit: axios-request npm package with token refresh, dedupe, cancel, and retry features
