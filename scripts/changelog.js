@@ -141,7 +141,6 @@ function generateVersionChangelog(commits, version, date) {
       }
       globalIndex++;
     }
-    lines.push('');
   }
 
   return lines.join('\n');
@@ -149,18 +148,24 @@ function generateVersionChangelog(commits, version, date) {
 
 // 主函数
 function main() {
+  // 支持命令行参数传入版本号（CI 环境使用）
+  const args = process.argv.slice(2);
+  const cliVersion = args[0];
+
   const latestTag = getLatestTag();
   console.log(`最新 tag: ${latestTag || '无'}`);
-  
+
   const commits = getCommits(latestTag);
   console.log(`获取到 ${commits.length} 条提交记录`);
-  
+
   if (commits.length === 0) {
     console.log('没有新的提交，跳过 changelog 生成');
     return;
   }
-  
-  const version = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')).version;
+
+  // 优先使用命令行传入的版本号，否则从 package.json 读取
+  const version = cliVersion || JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf-8')).version;
+  console.log(`生成版本: ${version}`);
   const date = new Date().toISOString().split('T')[0];
   
   const changelog = generateVersionChangelog(commits, version, date);
