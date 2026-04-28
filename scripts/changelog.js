@@ -19,6 +19,23 @@ function getLatestTag() {
   }
 }
 
+// 获取前一个 tag（当前 tag 之前的一个）
+function getPreviousTag(currentTag) {
+  try {
+    const tags = execSync('git tag --sort=-version:refname', { encoding: 'utf-8' })
+      .split('\n')
+      .map(t => t.trim())
+      .filter(Boolean);
+    const currentIndex = tags.indexOf(currentTag);
+    if (currentIndex >= 0 && currentIndex < tags.length - 1) {
+      return tags[currentIndex + 1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // 获取 commit 历史
 function getCommits(sinceTag) {
   const range = sinceTag ? `${sinceTag}..HEAD` : '--all';
@@ -143,15 +160,24 @@ function main() {
   const replaceMode = args.includes('--replace');
   const releaseMode = args.includes('--release');
 
-  const latestTag = getLatestTag();
+  let latestTag = getLatestTag();
   console.log(`最新 tag: ${latestTag || '无'}`);
 
-  const commits = getCommits(latestTag);
+  // release 模式下，获取前一个 tag 作为起始点
+  let sinceTag = latestTag;
+  if (releaseMode && cliVersion) {
+    const prevTag = getPreviousTag(cliVersion);
+    if (prevTag) {
+      sinceTag = prevTag;
+      console.log(`使用前一个 tag: ${prevTag}`);
+    }
+  }
+
+  const commits = getCommits(sinceTag);
   console.log(`获取到 ${commits.length} 条提交记录`);
 
   if (commits.length === 0) {
-    console.log('没有新的提交，跳过 changelog 生成');
-    return;
+    console.log('⚠️ 没有新的提交，但仍会生成 release 文件');
   }
 
   // 优先使用命令行传入的版本号，否则从 package.json 读取
