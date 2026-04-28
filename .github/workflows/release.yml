@@ -95,10 +95,13 @@ jobs:
       - name: Generate changelog
         run: node scripts/changelog.js ${{ steps.get_version.outputs.VERSION }} --replace
 
+      - name: Generate release body
+        run: node scripts/changelog.js ${{ steps.get_version.outputs.VERSION }} --release
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          body_path: CHANGELOG.md
+          body_path: release-body.md
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

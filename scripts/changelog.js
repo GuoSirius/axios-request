@@ -134,12 +134,14 @@ function generateVersionChangelog(commits, version, date) {
 // 主函数
 function main() {
   // 支持命令行参数
-  //   node scripts/changelog.js [version] [--replace]
+  //   node scripts/changelog.js [version] [--replace] [--release]
   //   - version: 版本号（CI 环境使用）
   //   - --replace: 替换模式，只更新当前版本内容，不重新生成历史
+  //   - --release: 生成只包含当前版本的 release-body.md（用于 GitHub Release）
   const args = process.argv.slice(2);
   const cliVersion = args[0];
   const replaceMode = args.includes('--replace');
+  const releaseMode = args.includes('--release');
 
   const latestTag = getLatestTag();
   console.log(`最新 tag: ${latestTag || '无'}`);
@@ -158,6 +160,14 @@ function main() {
   const date = new Date().toISOString().split('T')[0];
 
   const changelog = generateVersionChangelog(commits, version, date);
+
+  // release 模式：只生成当前版本的 release-body.md
+  if (releaseMode) {
+    const releaseBodyPath = path.join(__dirname, '..', 'release-body.md');
+    fs.writeFileSync(releaseBodyPath, changelog);
+    console.log('✅ Release body 生成完成: release-body.md');
+    return;
+  }
 
   const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
 
