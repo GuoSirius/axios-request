@@ -41,11 +41,18 @@ function getPreviousTag(currentTag) {
 }
 
 // 获取 commit 历史
-function getCommits(sinceTag) {
+function getCommits(sinceTag, excludeReleaseCommits = false) {
   const range = sinceTag ? `${sinceTag}..HEAD` : '--all';
   try {
     const log = execSync(`git log ${range} --pretty=format:"%s|%h|%an"`, { encoding: 'utf-8' });
-    return log.split('\n').filter(Boolean);
+    let commits = log.split('\n').filter(Boolean);
+    
+    // release 模式下过滤掉 chore(release) 提交
+    if (excludeReleaseCommits) {
+      commits = commits.filter(c => !c.match(/^chore\(release\):/));
+    }
+    
+    return commits;
   } catch {
     return [];
   }
@@ -167,9 +174,9 @@ function main() {
   let latestTag = getLatestTag();
   console.log(`最新 tag: ${latestTag || '无'}`);
 
-  // release 模式下，获取前一个 tag 作为起始点
+  // replace/release 模式下，获取前一个 tag 作为起始点
   let sinceTag = latestTag;
-  if (releaseMode && cliVersion) {
+  if ((replaceMode || releaseMode) && cliVersion) {
     const prevTag = getPreviousTag(cliVersion);
     if (prevTag) {
       sinceTag = prevTag;
@@ -177,7 +184,7 @@ function main() {
     }
   }
 
-  const commits = getCommits(sinceTag);
+  const commits = getCommits(sinceTag, releaseMode);
   console.log(`获取到 ${commits.length} 条提交记录`);
 
   if (commits.length === 0) {
