@@ -38,8 +38,8 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
   /** 管理器名称 */
   protected readonly managerName: string = 'DedupeManager';
 
-  /** 默认去重方法 */
-  private readonly defaultMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+  /** 默认去重方法（静态属性，避免在父类构造函数中访问时未初始化） */
+  private static readonly defaultMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
 
   /** 待处理的请求 Map */
   private pendingRequests: Map<string, DedupeItem> = new Map();
@@ -60,7 +60,7 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
     return {
       enabled: true,
       timeWindow: 1000,
-      methods: [...this.defaultMethods],
+      methods: [...DedupeManager.defaultMethods],
       generateKey: 'method:url',
     };
   }

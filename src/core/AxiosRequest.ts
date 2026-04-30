@@ -5,7 +5,7 @@ import {
   RequestContext,
   TokenManagerConfig,
 } from '../types';
-import { ManagerRegistry } from './ManagerRegistry';
+import ManagerRegistry from './ManagerRegistry';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
@@ -157,11 +157,11 @@ export class AxiosRequest {
 
     // 重试处理
     const retryManager = this.registry.getRetryManager();
-    if (ctx.retry && retryManager?.shouldRetry(ctx.retry, error.config)) {
+    if (ctx.retry && retryManager.shouldRetry(ctx.retry, error.config)) {
       const retryCount = (error.config as any)._retryCount || 0;
-      if (retryManager!.shouldRetryOnError(ctx.retry, error, retryCount)) {
+      if (retryManager.shouldRetryOnError(ctx.retry, error, retryCount)) {
         try {
-          return await retryManager!.retry(
+          return await retryManager.retry(
             ctx.retry,
             error.config,
             (config) => this.instance.request(config),
@@ -208,30 +208,24 @@ export class AxiosRequest {
 
     // Dedupe 上下文
     const dedupeManager = this.registry.getDedupeManager(config.dedupe);
-    if (dedupeManager) {
-      ctx.dedupe = this.registry.createDedupeContext(
-        dedupeManager,
-        typeof config.dedupe === 'object' ? config.dedupe : undefined
-      );
-    }
+    ctx.dedupe = this.registry.createDedupeContext(
+      dedupeManager,
+      typeof config.dedupe === 'object' ? config.dedupe : undefined
+    );
 
     // Cancel 上下文
     const cancelManager = this.registry.getCancelManager(config.cancel);
-    if (cancelManager) {
-      ctx.cancel = this.registry.createCancelContext(
-        cancelManager,
-        typeof config.cancel === 'object' ? config.cancel : undefined
-      );
-    }
+    ctx.cancel = this.registry.createCancelContext(
+      cancelManager,
+      typeof config.cancel === 'object' ? config.cancel : undefined
+    );
 
     // Retry 上下文
     const retryManager = this.registry.getRetryManager(config.retry);
-    if (retryManager) {
-      ctx.retry = this.registry.createRetryContext(
-        retryManager,
-        typeof config.retry === 'object' ? config.retry : undefined
-      );
-    }
+    ctx.retry = this.registry.createRetryContext(
+      retryManager,
+      typeof config.retry === 'object' ? config.retry : undefined
+    );
 
     return ctx;
   }
@@ -298,8 +292,8 @@ export class AxiosRequest {
 
     // 防重复提交
     const dedupeManager = this.registry.getDedupeManager();
-    if (ctx.dedupe && dedupeManager?.shouldDedupe(ctx.dedupe, finalConfig)) {
-      return await dedupeManager!.dedupe(
+    if (ctx.dedupe && dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
+      return await dedupeManager.dedupe(
         ctx.dedupe,
         finalConfig,
         () => this.instance.request<T>(finalConfig).then(r => r.data)
@@ -308,8 +302,8 @@ export class AxiosRequest {
 
     // 请求取消
     const cancelManager = this.registry.getCancelManager();
-    if (ctx.cancel && cancelManager?.shouldCancel(ctx.cancel, finalConfig)) {
-      finalConfig = cancelManager!.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
+    if (ctx.cancel && cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
+      finalConfig = cancelManager.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
     }
 
     // 发起请求
@@ -438,8 +432,8 @@ export class AxiosRequest {
    * - 取消请求取消的待处理请求
    */
   clear(): void {
-    this.registry.getDedupeManager()?.clear();
-    this.registry.getCancelManager()?.clear();
+    this.registry.getDedupeManager().clear();
+    this.registry.getCancelManager().clear();
   }
 
   /**

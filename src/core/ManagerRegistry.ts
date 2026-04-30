@@ -1,334 +1,330 @@
-import {
-  AxiosRequestInstanceConfig,
-  TokenManagerConfig,
-  DedupeShortcut,
-  CancelShortcut,
-  RetryShortcut,
-  TokenContext,
-  DedupeContext,
-  CancelContext,
-  RetryContext,
+/**
+ * 管理器注册表
+ * 
+ * 统一管理所有功能管理器，支持实例级和私有级两种模式。
+ * 
+ * 核心规则：
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │ 1. Token：默认关闭，需要显式配置才能开启                       │
+ * │ 2. Dedupe/Cancel/Retry：默认开启，可显式配置为 false 关闭     │
+ * └─────────────────────────────────────────────────────────────┘
+ * 
+ * | 场景                        | Token | Dedupe | Cancel | Retry |
+ * |-----------------------------|-------|--------|--------|-------|
+ * | 实例级有配置                 | 实例级 | 实例级 | 实例级 | 实例级 |
+ * | 实例级没有 + 请求级有        | 私有级 | 私有级 | 私有级 | 私有级 |
+ * | 都没有                       | 无    | 默认   | 默认   | 默认   |
+ * 
+ * @example
+ * // 实例级管理器：实例化时配置
+ * const api = new AxiosRequest({
+ *   dedupe: true,
+ *   cancel: true,
+ *   retry: { enabled: true, maxRetries: 3 },
+ * });
+ * 
+ * // 私有级管理器：按需创建并缓存复用
+ * const api = new AxiosRequest({});
+ * api.get('/test', { retry: true });  // 创建私有级 retryManager
+ * api.get('/test2', { retry: true }); // 复用同一个私有级 retryManager
+ */
+
+import type {
+  TokenManager as ITokenManager,
+  DedupeManager as IDedupeManager,
+  CancelManager as ICancelManager,
+  RetryManager as IRetryManager,
 } from '../types';
+import type {
+  AxiosRequestConfig,
+  TokenConfig,
+  DedupeConfig,
+  CancelConfig,
+  RetryConfig,
+  InternalAxiosRequestConfig,
+} from '../types';
+import type { AxiosError, AxiosResponse, Method } from 'axios';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
 import { RetryManager } from '../managers/RetryManager';
-import type { DedupeConfig } from '../types';
-import type { CancelConfig } from '../types';
-import type { RetryConfig } from '../types';
 
 /**
- * 管理器注册表
- * 负责管理实例级和请求级管理器的生命周期
- *
- * 设计原则：
- * 1. 实例级管理器具优先：有实例级配置就用实例级
- * 2. 没有实例级配置时，按需创建私有级管理器
- * 3. 私有级管理器按类型缓存，每个类型只创建一次，后续复用
- * 4. 配置合并时不修改原配置
- *
- * 生命周期：
- * - 实例级管理器在 AxiosRequest 实例化时根据配置创建
- * - 私有级管理器在首次需要时创建，后续复用
- * - destroy() 时清理所有资源
- *
- * @example
- * ```typescript
- * // 场景1：实例级有配置 → 用实例级
- * const request = new AxiosRequest({
- *   token: { refreshToken, setToken },
- *   dedupe: true,
- * });
- * // tokenManager 和 dedupeManager 都是实例级
- *
- * // 场景2：实例级没有 + 请求级有 → 用私有级
- * const request = new AxiosRequest({});
- * request.get('/api', { retry: true });
- * // retryManager 是私有级，第一次创建后缓存
- *
- * // 场景3：都没有 → 不使用（返回禁用状态的管理器）
- * const request = new AxiosRequest({});
- * // dedupeManager/cancelManager/retryManager 都返回禁用状态
- * ```
+ * 存储已解析的实例级配置（用于检测是否显式配置）
  */
-export class ManagerRegistry {
-  /** 实例级 Token 管理（有显式配置时创建） */
-  private instanceTokenManager?: TokenManager;
+type ResolvedInstanceConfig = {
+  token?: boolean | TokenConfig;
+  dedupe?: boolean | DedupeConfig;
+  cancel?: boolean | CancelConfig;
+  retry?: boolean | RetryConfig;
+};
 
-  /** 私有级 Token 管理（首次需要时创建，后续复用） */
-  private privateTokenManager?: TokenManager;
-
-  /** 私有级防重复提交管理（首次需要时创建，后续复用） */
-  private privateDedupeManager?: DedupeManager;
-
-  /** 私有级请求取消管理（首次需要时创建，后续复用） */
-  private privateCancelManager?: CancelManager;
-
-  /** 私有级请求重试管理（首次需要时创建，后续复用） */
-  private privateRetryManager?: RetryManager;
-
-  /** 实例级防重复提交管理（有实例配置时创建） */
-  private instanceDedupeManager?: DedupeManager;
-
-  /** 实例级请求取消管理（有实例配置时创建） */
-  private instanceCancelManager?: CancelManager;
-
-  /** 实例级请求重试管理（有实例配置时创建） */
-  private instanceRetryManager?: RetryManager;
-
-  /** 实例配置引用 */
-  private config: AxiosRequestInstanceConfig;
-
-  /**
-   * 构造函数
-   * @param config - 实例配置
-   */
-  constructor(config: AxiosRequestInstanceConfig) {
-    this.config = config;
-
-    // 只有显式配置了 token 才创建实例级管理器
-    if (config.token) {
-      this.instanceTokenManager = new TokenManager(config.token);
+export default class ManagerRegistry {
+  // ==================== 实例级管理器（构造函数时确定） ====================
+  
+  private readonly tokenManager?: ITokenManager;
+  private readonly dedupeManager?: IDedupeManager;
+  private readonly cancelManager?: ICancelManager;
+  private readonly retryManager?: IRetryManager;
+  
+  // ==================== 私有级管理器（按需创建并缓存） ====================
+  
+  private _privateDedupeManager?: IDedupeManager;
+  private _privateCancelManager?: ICancelManager;
+  private _privateRetryManager?: IRetryManager;
+  
+  // ==================== 配置解析 ====================
+  
+  private readonly resolvedConfig: ResolvedInstanceConfig;
+  
+  constructor(config: AxiosRequestConfig = {}) {
+    // 解析并存储实例级配置（用于检测是否显式配置）
+    this.resolvedConfig = this.resolveConfig(config);
+    
+    // Token：默认关闭，显式配置才创建
+    if (this.resolvedConfig.token !== undefined) {
+      const tokenConfig = this.resolvedConfig.token;
+      if (tokenConfig !== false) {
+        this.tokenManager = new TokenManager(
+          typeof tokenConfig === 'object' ? tokenConfig : undefined
+        );
+      }
     }
-
-    // 只有显式配置了 dedupe 才创建实例级管理器
-    if (config.dedupe !== undefined) {
-      this.instanceDedupeManager = new DedupeManager(this.normalizeDedupeConfig(config.dedupe));
+    
+    // Dedupe：默认开启，显式配置为 false 才关闭
+    const dedupeConfig = this.resolvedConfig.dedupe;
+    if (dedupeConfig === false) {
+      // 显式关闭，不创建
+    } else {
+      this.dedupeManager = new DedupeManager(
+        typeof dedupeConfig === 'object' ? dedupeConfig : undefined
+      );
     }
-
-    // 只有显式配置了 cancel 才创建实例级管理器
-    if (config.cancel !== undefined) {
-      this.instanceCancelManager = new CancelManager(this.normalizeCancelConfig(config.cancel));
+    
+    // Cancel：默认开启，显式配置为 false 才关闭
+    const cancelConfig = this.resolvedConfig.cancel;
+    if (cancelConfig === false) {
+      // 显式关闭，不创建
+    } else {
+      this.cancelManager = new CancelManager(
+        typeof cancelConfig === 'object' ? cancelConfig : undefined
+      );
     }
-
-    // 只有显式配置了 retry 才创建实例级管理器
-    if (config.retry !== undefined) {
-      this.instanceRetryManager = new RetryManager(this.normalizeRetryConfig(config.retry));
+    
+    // Retry：默认开启，显式配置为 false 才关闭
+    const retryConfig = this.resolvedConfig.retry;
+    if (retryConfig === false) {
+      // 显式关闭，不创建
+    } else {
+      this.retryManager = new RetryManager(
+        typeof retryConfig === 'object' ? retryConfig : undefined
+      );
     }
   }
-
-  // ==================== Token 管理 ====================
-
+  
   /**
-   * 获取 Token 管理
-   * @param requestConfig - 请求级配置（可选）
-   * @returns Token 管理实例或 undefined
-   *
-   * 规则：
-   * 1. 有实例级管理，优先使用
-   * 2. 没有实例级，但请求配置了（true 或对象），创建/获取私有级
-   * 3. 请求级配置为 false，返回 undefined
+   * 解析配置，确定每个管理器是否有显式配置
    */
-  getTokenManager(requestConfig?: TokenManagerConfig | boolean): TokenManager | undefined {
-    // 请求级配置为 false，禁用 Token 管理
-    if (requestConfig === false) {
-      return undefined;
+  private resolveConfig(config: AxiosRequestConfig): ResolvedInstanceConfig {
+    return {
+      token: config.token,
+      dedupe: config.dedupe,
+      cancel: config.cancel,
+      retry: config.retry,
+    };
+  }
+  
+  /**
+   * 获取 Token 管理器
+   * @param requestToken 请求级配置
+   * @returns Token 管理器实例，如果都不配置则返回 undefined
+   */
+  getTokenManager(requestToken?: TokenConfig | boolean): ITokenManager | undefined {
+    // 场景1：实例级有配置
+    if (this.tokenManager) {
+      return this.tokenManager;
     }
-
-    // 有实例级管理，优先使用
-    if (this.instanceTokenManager) {
-      return this.instanceTokenManager;
+    
+    // 场景2：实例级没有 + 请求级有配置
+    if (requestToken !== undefined && requestToken !== false) {
+      return this.getOrCreatePrivateTokenManager(
+        typeof requestToken === 'object' ? requestToken : undefined
+      );
     }
-
-    // 没有实例级，请求级配置了（true 或对象）
-    if (requestConfig === true || typeof requestConfig === 'object') {
-      // 首次使用时创建私有级管理器
-      if (!this.privateTokenManager) {
-        const config = requestConfig === true ? {} : requestConfig;
-        this.privateTokenManager = new TokenManager(config);
-      }
-      return this.privateTokenManager;
-    }
-
+    
+    // 场景3：都没有，不使用
     return undefined;
   }
-
+  
   /**
-   * 获取 Token 私有级管理器（如果存在）
+   * 获取防重复提交管理器
+   * @param requestDedupe 请求级配置
+   * @returns 防重复提交管理器实例，默认开启
    */
-  getPrivateTokenManager(): TokenManager | undefined {
-    return this.privateTokenManager;
-  }
-
-  // ==================== 防重复提交管理 ====================
-
-  /**
-   * 获取防重复提交管理
-   * @param requestConfig - 请求级配置（可选）
-   * @returns 防重复提交管理实例
-   *
-   * 规则：
-   * 1. 有实例级管理，优先使用
-   * 2. 没有实例级，请求级有配置，创建/获取私有级
-   * 3. 都没有，返回禁用状态的管理器
-   */
-  getDedupeManager(requestConfig?: DedupeShortcut): DedupeManager | undefined {
-    // 有实例级管理，优先使用
-    if (this.instanceDedupeManager) {
-      return this.instanceDedupeManager;
+  getDedupeManager(requestDedupe?: DedupeConfig | boolean): IDedupeManager | undefined {
+    // 场景1：实例级有配置
+    if (this.dedupeManager) {
+      return this.dedupeManager;
     }
-
-    // 没有实例级，请求级有配置
-    if (requestConfig !== undefined) {
-      // 首次使用时创建私有级管理器
-      if (!this.privateDedupeManager) {
-        this.privateDedupeManager = new DedupeManager(this.normalizeDedupeConfig(requestConfig));
-      }
-      return this.privateDedupeManager;
+    
+    // 场景2：实例级没有 + 请求级有配置
+    if (requestDedupe !== undefined && requestDedupe !== false) {
+      return this.getOrCreatePrivateDedupeManager(
+        typeof requestDedupe === 'object' ? requestDedupe : undefined
+      );
     }
-
-    // 都没有，返回 undefined
-    return undefined;
+    
+    // 场景3：都没有，默认开启
+    return this.getOrCreatePrivateDedupeManager(undefined);
   }
-
+  
   /**
-   * 规范化防重复提交配置
+   * 获取请求取消管理器
+   * @param requestCancel 请求级配置
+   * @returns 请求取消管理器实例，默认开启
    */
-  private normalizeDedupeConfig(config: DedupeShortcut): DedupeConfig {
-    if (config === true) return { enabled: true };
-    if (config === false) return { enabled: false };
-    if (Array.isArray(config)) return { enabled: true, methods: config };
-    if (typeof config === 'string') return { enabled: true, generateKey: config };
-    if (typeof config === 'function') return { enabled: true, generateKey: config };
-    return { enabled: true, ...config } as DedupeConfig;
-  }
-
-  // ==================== 请求取消管理 ====================
-
-  /**
-   * 获取请求取消管理
-   * @param requestConfig - 请求级配置（可选）
-   * @returns 请求取消管理实例
-   *
-   * 规则：
-   * 1. 有实例级管理，优先使用
-   * 2. 没有实例级，请求级有配置，创建/获取私有级
-   * 3. 都没有，返回 undefined
-   */
-  getCancelManager(requestConfig?: CancelShortcut): CancelManager | undefined {
-    // 有实例级管理，优先使用
-    if (this.instanceCancelManager) {
-      return this.instanceCancelManager;
+  getCancelManager(requestCancel?: CancelConfig | boolean): ICancelManager | undefined {
+    // 场景1：实例级有配置
+    if (this.cancelManager) {
+      return this.cancelManager;
     }
-
-    // 没有实例级，请求级有配置
-    if (requestConfig !== undefined) {
-      // 首次使用时创建私有级管理器
-      if (!this.privateCancelManager) {
-        this.privateCancelManager = new CancelManager(this.normalizeCancelConfig(requestConfig));
-      }
-      return this.privateCancelManager;
+    
+    // 场景2：实例级没有 + 请求级有配置
+    if (requestCancel !== undefined && requestCancel !== false) {
+      return this.getOrCreatePrivateCancelManager(
+        typeof requestCancel === 'object' ? requestCancel : undefined
+      );
     }
-
-    // 都没有，返回 undefined
-    return undefined;
+    
+    // 场景3：都没有，默认开启
+    return this.getOrCreatePrivateCancelManager(undefined);
   }
-
+  
   /**
-   * 规范化请求取消配置
+   * 获取失败重试管理器
+   * @param requestRetry 请求级配置
+   * @returns 失败重试管理器实例，默认开启
    */
-  private normalizeCancelConfig(config: CancelShortcut): CancelConfig {
-    if (config === true) return { enabled: true };
-    if (config === false) return { enabled: false };
-    if (Array.isArray(config)) return { enabled: true, methods: config };
-    if (typeof config === 'string') return { enabled: true, generateKey: config };
-    if (typeof config === 'function') return { enabled: true, generateKey: config };
-    return { enabled: true, ...config } as CancelConfig;
-  }
-
-  // ==================== 请求重试管理 ====================
-
-  /**
-   * 获取请求重试管理
-   * @param requestConfig - 请求级配置（可选）
-   * @returns 请求重试管理实例
-   *
-   * 规则：
-   * 1. 有实例级管理，优先使用
-   * 2. 没有实例级，请求级有配置，创建/获取私有级
-   * 3. 都没有，返回 undefined
-   */
-  getRetryManager(requestConfig?: RetryShortcut): RetryManager | undefined {
-    // 有实例级管理，优先使用
-    if (this.instanceRetryManager) {
-      return this.instanceRetryManager;
+  getRetryManager(requestRetry?: RetryConfig | boolean): IRetryManager | undefined {
+    // 场景1：实例级有配置
+    if (this.retryManager) {
+      return this.retryManager;
     }
-
-    // 没有实例级，请求级有配置
-    if (requestConfig !== undefined) {
-      // 首次使用时创建私有级管理器
-      if (!this.privateRetryManager) {
-        this.privateRetryManager = new RetryManager(this.normalizeRetryConfig(requestConfig));
-      }
-      return this.privateRetryManager;
+    
+    // 场景2：实例级没有 + 请求级有配置
+    if (requestRetry !== undefined && requestRetry !== false) {
+      return this.getOrCreatePrivateRetryManager(
+        typeof requestRetry === 'object' ? requestRetry : undefined
+      );
     }
-
-    // 都没有，返回 undefined
-    return undefined;
+    
+    // 场景3：都没有，默认开启
+    return this.getOrCreatePrivateRetryManager(undefined);
   }
-
+  
   /**
-   * 规范化请求重试配置
+   * 获取或创建私有级 Token 管理器
+   * @param config 请求级配置
    */
-  private normalizeRetryConfig(config: RetryShortcut): RetryConfig {
-    if (config === true) return { enabled: true, maxRetries: 3 };
-    if (config === false) return { enabled: false };
-    if (typeof config === 'number') return { enabled: true, maxRetries: config };
-    if (typeof config === 'function') return { enabled: true, retryCondition: config };
-    return { enabled: true, ...config } as RetryConfig;
+  private getOrCreatePrivateTokenManager(config?: TokenConfig): ITokenManager {
+    if (!this._privateTokenManager) {
+      this._privateTokenManager = new TokenManager(config);
+    }
+    return this._privateTokenManager;
   }
-
-  // ==================== 上下文创建 ====================
-
+  
   /**
-   * 创建 Token 上下文
+   * 获取或创建私有级防重复提交管理器
+   * @param config 请求级配置
    */
+  private getOrCreatePrivateDedupeManager(config?: DedupeConfig): IDedupeManager {
+    if (!this._privateDedupeManager) {
+      this._privateDedupeManager = new DedupeManager(config);
+    }
+    return this._privateDedupeManager;
+  }
+  
+  /**
+   * 获取或创建私有级请求取消管理器
+   * @param config 请求级配置
+   */
+  private getOrCreatePrivateCancelManager(config?: CancelConfig): ICancelManager {
+    if (!this._privateCancelManager) {
+      this._privateCancelManager = new CancelManager(config);
+    }
+    return this._privateCancelManager;
+  }
+  
+  /**
+   * 获取或创建私有级失败重试管理器
+   * @param config 请求级配置
+   */
+  private getOrCreatePrivateRetryManager(config?: RetryConfig): IRetryManager {
+    if (!this._privateRetryManager) {
+      this._privateRetryManager = new RetryManager(config);
+    }
+    return this._privateRetryManager;
+  }
+  
+  // ==================== Token 上下文创建 ====================
+  
   createTokenContext(
-    manager: TokenManager,
-    getToken?: () => string | null,
-    whitelistUrls?: (string | RegExp)[]
-  ): TokenContext {
-    return manager.createContext(getToken, whitelistUrls);
+    manager: ITokenManager,
+    requestConfig?: InternalAxiosRequestConfig
+  ): { manager: ITokenManager; config: InternalAxiosRequestConfig } {
+    return { manager, config: requestConfig! };
   }
-
-  /**
-   * 创建防重复提交上下文
-   */
-  createDedupeContext(manager: DedupeManager, override?: Partial<DedupeContext>): DedupeContext {
-    return manager.createContext(override);
+  
+  // ==================== Dedupe 上下文创建 ====================
+  
+  createDedupeContext(
+    manager: IDedupeManager,
+    requestConfig?: DedupeConfig
+  ): { manager: IDedupeManager; config: DedupeConfig } {
+    return {
+      manager,
+      config: requestConfig || { enabled: true },
+    };
   }
-
-  /**
-   * 创建请求取消上下文
-   */
-  createCancelContext(manager: CancelManager, override?: Partial<CancelContext>): CancelContext {
-    return manager.createContext(override);
+  
+  // ==================== Cancel 上下文创建 ====================
+  
+  createCancelContext(
+    manager: ICancelManager,
+    requestConfig?: CancelConfig
+  ): { manager: ICancelManager; config: CancelConfig } {
+    return {
+      manager,
+      config: requestConfig || { enabled: true },
+    };
   }
-
-  /**
-   * 创建请求重试上下文
-   */
-  createRetryContext(manager: RetryManager, override?: Partial<RetryContext>): RetryContext {
-    return manager.createContext(override);
+  
+  // ==================== Retry 上下文创建 ====================
+  
+  createRetryContext(
+    manager: IRetryManager,
+    requestConfig?: RetryConfig
+  ): { manager: IRetryManager; config: RetryConfig } {
+    return {
+      manager,
+      config: requestConfig || { enabled: true },
+    };
   }
-
-  // ==================== 资源管理 ====================
-
+  
+  // ==================== 生命周期 ====================
+  
   /**
-   * 销毁所有管理，清理所有资源
-   * 应该在 AxiosRequest 实例销毁时调用
+   * 销毁所有管理器，释放资源
    */
   destroy(): void {
-    // 销毁实例级管理
-    this.instanceTokenManager?.destroy();
-    this.instanceDedupeManager?.destroy();
-    this.instanceCancelManager?.destroy();
-    this.instanceRetryManager?.destroy();
-
-    // 销毁私有级管理
-    this.privateTokenManager?.destroy();
-    this.privateDedupeManager?.destroy();
-    this.privateCancelManager?.destroy();
-    this.privateRetryManager?.destroy();
+    this.tokenManager?.destroy();
+    this.dedupeManager?.destroy();
+    this.cancelManager?.destroy();
+    this.retryManager?.destroy();
+    
+    this._privateTokenManager?.destroy();
+    this._privateDedupeManager?.destroy();
+    this._privateCancelManager?.destroy();
+    this._privateRetryManager?.destroy();
   }
 }

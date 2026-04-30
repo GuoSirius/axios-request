@@ -34,8 +34,8 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
   /** 管理器名称 */
   protected readonly managerName: string = 'CancelManager';
 
-  /** 默认取消方法 */
-  private readonly defaultMethods = ['GET'];
+  /** 默认取消方法（静态属性，避免在父类构造函数中访问时未初始化） */
+  private static readonly defaultMethods = ['GET'];
 
   /** 待处理的请求 Map */
   private pendingRequests: Map<string, AbortController> = new Map();
@@ -55,7 +55,7 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
   protected getDefaultConfig(): CancelConfig {
     return {
       enabled: true,
-      methods: [...this.defaultMethods],
+      methods: [...CancelManager.defaultMethods],
       generateKey: 'method:url',
     };
   }
