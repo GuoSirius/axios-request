@@ -6,6 +6,13 @@
 
 <!-- AUTO_GENERATED -->
 
+## 1.4.0 (2026-04-30)
+
+### ✨ 新功能
+
+- upgrade all packages to latest versions
+
+
 ## 1.3.0 (2026-04-30)
 
 ### ✨ 新功能
