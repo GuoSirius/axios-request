@@ -1,62 +1,102 @@
 import { AxiosRequestConfig } from 'axios';
-import { DedupeConfig, DedupeItem, DedupeShortcut } from '../types';
+import {
+  DedupeConfig,
+  DedupeItem,
+  DedupeContext,
+  DedupeShortcut,
+} from '../types';
+import { BaseManager } from './base/BaseManager';
 import { normalizeGenerateKey } from '../utils/requestKey';
-
-const defaultMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-
-/**
- * Dedupe上下文 - 每个请求独立的去重配置
- */
-interface DedupeContext {
-  enabled: boolean;
-  timeWindow: number;
-  methods: string[];
-  generateKey: (config: AxiosRequestConfig) => string;
-}
-
-/**
- * 规范化 DedupeConfig
- */
-function normalizeConfig(config: DedupeShortcut): Partial<DedupeConfig> {
-  if (!config) return {};
-  if (config === true) return { enabled: true };
-  if (Array.isArray(config)) return { enabled: true, methods: config.map(m => String(m).toUpperCase()) };
-  if (typeof config === 'string') return { enabled: true, generateKey: config };
-  if (typeof config === 'function') return { enabled: true, generateKey: config };
-  return { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) };
-}
+import { mergeConfig } from '../utils/configMerger';
 
 /**
  * 防重复提交管理器
+ * 在指定时间窗口内，相同的请求只会被发送一次
+ *
+ * 功能：
+ * 1. 支持配置时间窗口
+ * 2. 支持配置需要去重的方法
+ * 3. 支持自定义生成请求 key
+ * 4. 自动管理定时器，防止资源泄漏
+ *
+ * @example
+ * ```typescript
+ * const dedupeManager = new DedupeManager({
+ *   enabled: true,
+ *   timeWindow: 1000,
+ *   methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
+ *   generateKey: 'method:url:data.id', // 使用 method、url 和 data.id 生成 key
+ * });
+ *
+ * // 使用简写
+ * const dedupeManager2 = new DedupeManager(true); // 启用，使用默认配置
+ * const dedupeManager3 = new DedupeManager(['POST', 'PUT']); // 启用，设置去重方法
+ * const dedupeManager4 = new DedupeManager('method:url'); // 启用，设置生成 key 的方式
+ * ```
  */
-export class DedupeManager {
-  private defaultConfig: DedupeContext;
+export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
+  /** 管理器名称 */
+  protected readonly managerName: string = 'DedupeManager';
+
+  /** 默认去重方法 */
+  private readonly defaultMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+
+  /** 待处理的请求 Map */
   private pendingRequests: Map<string, DedupeItem> = new Map();
 
+  /**
+   * 构造函数
+   * @param config - 防重复提交配置（支持简写）
+   */
   constructor(config: DedupeShortcut = {}) {
-    const normalized = normalizeConfig(config);
-    this.defaultConfig = {
-      enabled: normalized.enabled ?? true,
-      timeWindow: normalized.timeWindow ?? 1000,
-      methods: normalized.methods ?? defaultMethods,
-      generateKey: normalizeGenerateKey(normalized.generateKey),
+    super(normalizeConfig(config));
+  }
+
+  /**
+   * 获取默认配置
+   * @returns 默认配置
+   */
+  protected getDefaultConfig(): DedupeConfig {
+    return {
+      enabled: true,
+      timeWindow: 1000,
+      methods: [...this.defaultMethods],
+      generateKey: 'method:url',
     };
   }
 
   /**
    * 创建请求上下文
+   * @param override - 请求级别的配置覆盖（可选）
+   * @returns 请求上下文
+   *
+   * @example
+   * ```typescript
+   * // 使用默认配置
+   * const context = dedupeManager.createContext();
+   *
+   * // 覆盖部分配置
+   * const context = dedupeManager.createContext({
+   *   timeWindow: 2000,
+   *   methods: ['POST'],
+   * });
+   * ```
    */
-  createContext(override?: Partial<DedupeContext>): DedupeContext {
+  createContext(override?: Partial<DedupeConfig>): DedupeContext {
+    const config = this.mergeConfig(override || {});
     return {
-      enabled: override?.enabled ?? this.defaultConfig.enabled,
-      timeWindow: override?.timeWindow ?? this.defaultConfig.timeWindow,
-      methods: override?.methods ?? this.defaultConfig.methods,
-      generateKey: override?.generateKey ?? this.defaultConfig.generateKey,
+      enabled: config.enabled!,
+      timeWindow: config.timeWindow!,
+      methods: config.methods!,
+      generateKey: normalizeGenerateKey(config.generateKey),
     };
   }
 
   /**
    * 检查是否应该处理该请求
+   * @param context - 请求上下文
+   * @param config - Axios 请求配置
+   * @returns 是否应该去重
    */
   shouldDedupe(context: DedupeContext, config: AxiosRequestConfig): boolean {
     if (!context.enabled) return false;
@@ -66,6 +106,10 @@ export class DedupeManager {
 
   /**
    * 检查是否重复并处理
+   * @param context - 请求上下文
+   * @param config - Axios 请求配置
+   * @param makeRequest - 发起请求的函数
+   * @returns Promise，解析为请求结果
    */
   async dedupe<T>(
     context: DedupeContext,
@@ -74,13 +118,18 @@ export class DedupeManager {
   ): Promise<T> {
     const key = context.generateKey(config);
 
+    // 检查是否已有相同的请求
     const existing = this.pendingRequests.get(key);
     if (existing) {
       return existing.promise as Promise<T>;
     }
 
-    const timer = setTimeout(() => this.pendingRequests.delete(key), context.timeWindow);
-    
+    // 创建定时器，在时间窗口后自动清理
+    const timer = setTimeout(() => {
+      this.pendingRequests.delete(key);
+    }, context.timeWindow);
+
+    // 发起请求
     const promise = new Promise<T>((resolve, reject) => {
       makeRequest()
         .then((result) => {
@@ -95,6 +144,7 @@ export class DedupeManager {
         });
     });
 
+    // 保存到待处理请求 Map
     this.pendingRequests.set(key, { timer, promise, resolve: () => {}, reject: () => {} });
 
     return promise;
@@ -102,9 +152,32 @@ export class DedupeManager {
 
   /**
    * 清除所有待处理的请求
+   * 清理所有定时器
    */
   clear(): void {
     this.pendingRequests.forEach((item) => clearTimeout(item.timer));
     this.pendingRequests.clear();
   }
+
+  /**
+   * 销毁管理器，清理所有资源
+   * 应该在实例销毁时调用
+   */
+  destroy(): void {
+    this.clear();
+  }
+}
+
+/**
+ * 规范化 DedupeConfig
+ * @param config - 用户提供的配置（可能是简写）
+ * @returns 标准化后的配置
+ */
+function normalizeConfig(config: DedupeShortcut): Partial<DedupeConfig> {
+  if (!config) return {};
+  if (config === true) return { enabled: true };
+  if (Array.isArray(config)) return { enabled: true, methods: config.map(m => String(m).toUpperCase()) };
+  if (typeof config === 'string') return { enabled: true, generateKey: config };
+  if (typeof config === 'function') return { enabled: true, generateKey: config };
+  return { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) };
 }
