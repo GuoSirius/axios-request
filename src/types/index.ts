@@ -320,10 +320,10 @@ export interface RetryContext {
 
 /**
  * Token 简写类型
- * - `boolean`: 启用/禁用（启用时需要提供具体配置）
- * - `object`: 完整配置对象
+ * - `boolean`: 启用/禁用（启用时使用默认配置）
+ * - `Partial<TokenManagerConfig>`: 部分配置，会与实例配置合并
  */
-export type TokenShortcut = TokenManagerConfig | boolean;
+export type TokenShortcut = Partial<TokenManagerConfig> | boolean;
 
 /**
  * 防重复提交简写类型
@@ -408,10 +408,11 @@ export interface AxiosRequestConfigExtended extends AxiosRequestConfig {
   /**
    * Token 管理配置
    * - `false`: 禁用 token 管理（用于不需要 token 的请求）
-   * - `object`: Token 管理器配置
+   * - `true`: 启用 token 管理（使用实例级配置）
+   * - `Partial<TokenManagerConfig>`: 部分配置，会与实例配置合并
    * - `undefined`: 使用实例级配置（默认）
    */
-  token?: TokenManagerConfig | boolean;
+  token?: Partial<TokenManagerConfig> | boolean;
 
   /** 防重复提交配置，支持简写 */
   dedupe?: DedupeShortcut;

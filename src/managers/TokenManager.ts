@@ -61,7 +61,7 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
    * @param config - 用户提供的配置（可能是简写）
    * @returns { enabled: boolean, config?: Partial<TokenManagerConfig> }
    */
-  static normalize(config?: TokenManagerConfig | boolean | null): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
+  static normalize(config?: Partial<TokenManagerConfig> | boolean | null): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
     if (config === undefined || config === null) {
       return { enabled: false }; // Token 默认关闭
     }

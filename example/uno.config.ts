@@ -1,34 +1,30 @@
-import { defineConfig, presetUno, transformerDirectives, transformerVariantGroup } from 'unocss';
-import { presetElementPlus } from '@unocss/preset-element-plus';
+import { defineConfig, presetUno, presetAttributify } from 'unocss';
 
 export default defineConfig({
   presets: [
     presetUno(),
-    presetElementPlus(), // 自动加载 Element Plus 样式
-  ],
-  transformers: [
-    transformerDirectives(),
-    transformerVariantGroup(),
+    presetAttributify(),
   ],
   theme: {
     colors: {
-      primary: '#0EA5E9',
-      secondary: '#6366F1',
-      accent: '#8B5CF6',
+      primary: '#6366f1',
+      secondary: '#8b5cf6',
+      accent: '#f472b6',
+      success: '#22c55e',
+      warning: '#f59e0b',
+      error: '#ef4444',
+      light: 'rgba(255, 255, 255, 0.85)',
       dark: {
-        DEFAULT: '#0F172A',
-        light: '#1E293B',
-        lighter: '#334155',
-      },
-      light: {
-        DEFAULT: '#F1F5F9',
-        dark: '#94A3B8',
+        DEFAULT: '#1a1a2e',
+        lighter: '#252542',
+        darker: '#0f0f1a',
       },
     },
   },
   shortcuts: {
-    'btn-primary': 'px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition-all',
-    'card-glow': 'bg-dark-light rounded-xl p-6 shadow-lg border border-dark-lighter relative overflow-hidden',
-    'card-glow::before': 'content-empty absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-primary to-accent',
+    'card-glow': 'bg-dark/50 rounded-xl p-6 border border-dark-lighter backdrop-blur-sm transition-all hover:border-primary/30',
+    'btn-primary': 'px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/80 transition-colors',
+    'btn-secondary': 'px-4 py-2 bg-secondary text-white rounded-lg hover:bg-secondary/80 transition-colors',
+    'input-base': 'w-full px-4 py-2 bg-dark border border-dark-lighter rounded-lg focus:border-primary focus:outline-none transition-colors',
   },
 });

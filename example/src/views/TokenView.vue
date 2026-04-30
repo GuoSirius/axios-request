@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { api } from '../utils/request';
 
 // 模拟 token 状态
@@ -35,7 +35,7 @@ const addLog = (message: string, type: 'info' | 'success' | 'warning' | 'error' 
 const testPublicRequest = async () => {
   addLog('发起公开接口请求（应该跳过 Token）...', 'info');
   try {
-    const result = await api.get('/api/public/news', {}, {
+    const result = await api.get('/api/public/news', {
       token: false, // 禁用 token
     });
     addLog(`公开接口请求成功: ${JSON.stringify(result)}`, 'success');
@@ -48,7 +48,7 @@ const testPublicRequest = async () => {
 const testWhitelistRequest = async () => {
   addLog('发起白名单接口请求...', 'info');
   try {
-    const result = await api.get('/api/health', {}, {
+    const result = await api.get('/api/health', {
       token: {
         whitelistUrls: config.whitelistUrls.split(',').map(s => s.trim()),
       },
@@ -111,26 +111,6 @@ const testExpiredScenario = async () => {
         pendingRequests.value--;
       });
     }, i * 100);
-  }
-};
-
-// 测试业务 code 过期
-const testBusinessCodeExpired = async () => {
-  if (!config.enabled) {
-    addLog('Token 管理器已禁用，跳过测试', 'warning');
-    return;
-  }
-
-  addLog('===== 测试业务 Code 过期场景 =====', 'warning');
-  addLog('模拟 200 响应但业务 code=401，触发 Token 刷新...', 'info');
-
-  try {
-    const result = await api.get('/api/business-code-test', {
-      token: {},
-    });
-    addLog(`请求成功: ${JSON.stringify(result)}`, 'success');
-  } catch (error: any) {
-    addLog(`请求失败: ${error.message}`, 'error');
   }
 };
 

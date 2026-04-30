@@ -54,7 +54,7 @@ import { RetryManager } from '../managers/RetryManager';
  * 配置解析结果
  */
 type ResolvedConfig = {
-  token?: TokenManagerConfig | boolean;
+  token?: Partial<TokenManagerConfig> | boolean;
   dedupe?: DedupeShortcut;
   cancel?: CancelShortcut;
   retry?: RetryShortcut;
@@ -118,7 +118,7 @@ export default class ManagerRegistry {
    * @param requestToken 请求级配置
    * @returns Token 管理器实例
    */
-  getTokenManager(requestToken?: TokenManagerConfig | boolean): ITokenManager | undefined {
+  getTokenManager(requestToken?: Partial<TokenManagerConfig> | boolean): ITokenManager | undefined {
     // 请求级配置处理
     if (requestToken !== undefined) {
       const tokenResult = TokenManager.normalize(requestToken);

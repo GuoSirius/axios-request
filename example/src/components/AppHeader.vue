@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
-import { Home, RefreshCcw, Document, Close, Upload, Close, Combine } from '@element-plus/icons-vue';
 
 const router = useRouter();
 
 const menuItems = [
-  { path: '/', name: '首页', icon: Home },
-  { path: '/token', name: 'Token 管理', icon: RefreshCcw },
-  { path: '/retry', name: '失败重试', icon: RefreshCcw },
-  { path: '/dedupe', name: '防重复提交', icon: Document },
-  { path: '/cancel', name: '取消请求', icon: Close },
-  { path: '/combined', name: '多管理器协同', icon: Combine },
+  { path: '/', name: '首页', icon: 'fa-home' },
+  { path: '/token', name: 'Token 管理', icon: 'fa-key' },
+  { path: '/retry', name: '失败重试', icon: 'fa-upload' },
+  { path: '/dedupe', name: '防重复提交', icon: 'fa-file' },
+  { path: '/cancel', name: '取消请求', icon: 'fa-times' },
+  { path: '/utils', name: '工具函数', icon: 'fa-wrench' },
+  { path: '/combined', name: '多管理器协同', icon: 'fa-link' },
 ];
 
 const isActive = (path: string) => {
@@ -38,7 +38,7 @@ const isActive = (path: string) => {
           class="px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2"
           :class="isActive(item.path) ? 'bg-primary/20 text-primary' : 'text-light/70 hover:bg-dark-lighter hover:text-light'"
         >
-          <component :is="item.icon" class="w-4 h-4" />
+          <i :class="`fa ${item.icon}`"></i>
           <span class="hidden md:inline">{{ item.name }}</span>
         </router-link>
       </nav>

@@ -1,6 +1,6 @@
 {
   "src/**/*.ts": [
-    "tsc --noEmit",
+    "tsc --noEmit --ignoreConfig",
     "eslint src --ext .ts"
   ],
   "__tests__/**/*.test.ts": [
