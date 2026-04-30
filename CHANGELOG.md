@@ -6,6 +6,42 @@
 
 <!-- AUTO_GENERATED -->
 
+## 1.3.0 (2026-04-30)
+
+### ✨ 新功能
+
+- 完善测试用例、示例demo及文档
+- 完成 Vue3 示例项目，包括所有管理器测试页面和协同测试
+- 完成 Vue3 示例项目基础结构和所有测试视图
+- 创建 Vue3 示例项目基础结构（Vite + Vue3 + Element Plus + UnoCSS）
+- 实现 ManagerRegistry，管理实例级和请求级管理器生命周期
+- 实现配置合并工具 configMerger.ts，优化 BaseManager 使用统一合并逻辑
+- 实现 BaseManager 基类，统一管理器接口和生命周期
+### 🐛 Bug 修复
+
+- 修复类型错误，统一配置规范化逻辑
+- 修复 DedupeManager/CancelManager 中 static 属性问题，完善默认开启逻辑
+- 取消注释管理器类类型导出，完善临时注释代码
+### ♻️ 代码重构
+
+- 统一配置规范化逻辑，使用Manager静态normalize方法
+- 统一配置规范化逻辑，添加私有级Token管理器支持
+- 完善实例级/私有级管理器逻辑，都没有时返回undefined
+- 简化 ManagerRegistry，私有级管理器按类型缓存复用
+- 重构 AxiosRequest 核心类，使用 ManagerRegistry 管理所有管理器
+- 重构 CancelManager，简化配置、完善类型注释、增强资源管理
+- 重构 DedupeManager，简化配置、完善类型注释、增强资源管理
+- 重构 RetryManager，简化配置、完善类型注释、增强资源管理
+- 重构 TokenManager，新增白名单URL支持、完善拦截逻辑、增强资源管理
+- 重构类型系统，完善类型定义和注释
+### 📝 文档更新
+
+- 更新 README、gitignore，完善测试用例和示例 demo
+### 🔧 构建/工具
+
+- upgrade all dependencies to latest versions
+
+
 ## 1.2.9 (2026-04-28)
 
 ### 🐛 Bug 修复
