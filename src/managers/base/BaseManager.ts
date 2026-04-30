@@ -1,4 +1,5 @@
 import { ManagerDefaultConfig, ManagerContext, ConfigMergeOptions } from '../../types';
+import { mergeConfig as mergeConfigUtil, deepMerge as deepMergeUtil } from '../../utils/configMerger';
 
 /**
  * 管理器基类
@@ -117,66 +118,18 @@ export abstract class BaseManager<TConfig extends ManagerDefaultConfig, TContext
     options: ConfigMergeOptions = { strategy: 'merge', allowUndefined: false }
   ): TConfig {
     const base = target || this.defaultConfig;
-    const strategy = options.strategy || 'merge';
-
-    if (strategy === 'replace') {
-      return { ...base, ...source } as TConfig;
-    }
-
-    if (strategy === 'shallow') {
-      const result: any = { ...base };
-      for (const key in source) {
-        if (source.hasOwnProperty(key)) {
-          const value = (source as any)[key];
-          if (options.allowUndefined || value !== undefined) {
-            result[key] = value;
-          }
-        }
-      }
-      return result as TConfig;
-    }
-
-    // 深度合并（默认）
-    return this.deepMerge(base, source, options) as TConfig;
+    return mergeConfigUtil(base, source, options);
   }
 
   /**
-   * 深度合并两个对象
+   * 深度合并两个对象（实例方法包装）
    * @param target - 目标对象
    * @param source - 源对象
    * @param options - 合并选项
    * @returns 合并后的对象
    */
-  private deepMerge(target: any, source: any, options: ConfigMergeOptions): any {
-    const result: any = { ...target };
-
-    for (const key in source) {
-      if (source.hasOwnProperty(key)) {
-        const sourceValue = source[key];
-        const targetValue = result[key];
-
-        // 如果不允许 undefined，跳过 undefined 值
-        if (!options.allowUndefined && sourceValue === undefined) {
-          continue;
-        }
-
-        // 如果源值和目标值都是对象，递归合并
-        if (
-          sourceValue &&
-          targetValue &&
-          typeof sourceValue === 'object' &&
-          typeof targetValue === 'object' &&
-          !Array.isArray(sourceValue) &&
-          !Array.isArray(targetValue)
-        ) {
-          result[key] = this.deepMerge(targetValue, sourceValue, options);
-        } else {
-          result[key] = sourceValue;
-        }
-      }
-    }
-
-    return result;
+  protected deepMerge(target: any, source: any, options: ConfigMergeOptions): any {
+    return deepMergeUtil(target, source, options);
   }
 
   /**
