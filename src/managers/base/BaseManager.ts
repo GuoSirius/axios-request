@@ -1,4 +1,4 @@
-import { ManagerDefaultConfig, ManagerContext, ConfigMergeOptions } from '../../types';
+import type { ConfigMergeOptions } from '../../types';
 import { mergeConfig as mergeConfigUtil, deepMerge as deepMergeUtil } from '../../utils/configMerger';
 
 /**

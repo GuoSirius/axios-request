@@ -12,9 +12,10 @@ export { CancelManager } from './managers/CancelManager';
 export { RetryManager } from './managers/RetryManager';
 
 // 导出工具函数
-export { generateRequestKey } from './utils/requestKey';
+export { generateRequestKey, createGenerateKey, normalizeGenerateKey } from './utils/requestKey';
 export { toFormData, checkType, flattenFormData } from './utils/formData';
 export type { FormDataValue, FlattenedEntry, TypeCheckResult } from './utils/formData';
+export { deepMerge, shallowMerge, mergeConfig, createConfigMerger } from './utils/configMerger';
 
 // 默认导出
 import { AxiosRequest } from './core/AxiosRequest';

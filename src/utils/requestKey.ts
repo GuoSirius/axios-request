@@ -1,4 +1,4 @@
-import { AxiosRequestConfig } from 'axios';
+import type { AxiosRequestConfig } from 'axios';
 
 /**
  * 默认的请求 key 生成函数
@@ -95,7 +95,7 @@ function resolveField(config: AxiosRequestConfig, field: string): string {
  *   特殊值：'only-url' -> 只用 url
  * @returns generateKey 函数
  */
-export function createGenerateKey(template: string): (config: AxiosRequestConfig) => string {
+export function createGenerateKey(template: string): (_config: AxiosRequestConfig) => string {
   // 特殊处理 only-url
   if (template === 'only-url') {
     return (config) => `${(config.method || '').toUpperCase()}:${config.url || ''}`;
@@ -114,7 +114,7 @@ export function createGenerateKey(template: string): (config: AxiosRequestConfig
  * @param generateKey 字符串或函数
  * @returns 标准化后的函数
  */
-export function normalizeGenerateKey(generateKey?: string | ((config: AxiosRequestConfig) => string)): (config: AxiosRequestConfig) => string {
+export function normalizeGenerateKey(generateKey?: string | ((_config: AxiosRequestConfig) => string)): (_config: AxiosRequestConfig) => string {
   if (!generateKey) {
     return generateRequestKey;
   }

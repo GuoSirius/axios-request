@@ -1,12 +1,11 @@
-import { AxiosRequestConfig } from 'axios';
-import {
+import type { AxiosRequestConfig } from 'axios';
+import type {
   CancelConfig,
   CancelContext,
   CancelShortcut,
 } from '../types';
 import { BaseManager } from './base/BaseManager';
 import { normalizeGenerateKey } from '../utils/requestKey';
-import { mergeConfig } from '../utils/configMerger';
 
 /**
  * 请求取消管理器（用于搜索等场景，自动取消上次相同请求）
@@ -44,7 +43,7 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
    */
   static normalize(config?: CancelShortcut | null): { enabled: boolean; config?: Partial<CancelConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: true }; // 默认开启
+      return { enabled: false }; // 除非明确配置，否则不开启
     }
     if (config === false) {
       return { enabled: false };
@@ -72,7 +71,8 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
    * @param config - 取消请求配置（支持简写）
    */
   constructor(config: CancelShortcut = {}) {
-    super(normalizeConfig(config));
+    const { config: normalizedConfig } = CancelManager.normalize(config);
+    super(normalizedConfig || {});
   }
 
   /**
@@ -149,9 +149,12 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
     const controller = new AbortController();
     this.pendingRequests.set(key, controller);
 
-    // 监听 abort 事件，自动清理
+    // 监听 abort 事件，自动清理（但只清理自己的 entry）
+    // 利用闭包保存 controller 引用，二次验证防止误删其他请求的 entry
     controller.signal.addEventListener('abort', () => {
-      this.pendingRequests.delete(key);
+      if (this.pendingRequests.get(key) === controller) {
+        this.pendingRequests.delete(key);
+      }
     });
 
     // 返回新的配置
@@ -176,16 +179,3 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
   }
 }
 
-/**
- * 规范化 CancelConfig
- * @param config - 用户提供的配置（可能是简写）
- * @returns 标准化后的配置
- */
-function normalizeConfig(config: CancelShortcut): Partial<CancelConfig> {
-  if (!config) return {};
-  if (config === true) return { enabled: true };
-  if (Array.isArray(config)) return { enabled: true, methods: config.map(m => String(m).toUpperCase()) };
-  if (typeof config === 'string') return { enabled: true, generateKey: config };
-  if (typeof config === 'function') return { enabled: true, generateKey: config };
-  return { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) };
-}

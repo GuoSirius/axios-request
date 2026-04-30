@@ -38,6 +38,11 @@ const router = createRouter({
           name: 'Combined',
           component: () => import('../views/CombinedView.vue'),
         },
+        {
+          path: 'utils',
+          name: 'Utils',
+          component: () => import('../views/UtilsView.vue'),
+        },
       ],
     },
   ],

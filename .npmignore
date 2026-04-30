@@ -1,6 +1,57 @@
-# Ignore everything except dist
-*
+# ============================================
+# axios-request .npmignore
+# ============================================
+
+# Source code
+src/
+__tests__/
+scripts/
+
+# Development files
+.git-hooks/
+.github/
+.husky/
+.lintstagedrc
+.lintstagedrc.json
+
+# Config files
+eslint.config.js
+vitest.config.ts
+tsconfig.json
+rollup.config.js
+commitlint.config.cjs
+.nvmrc
+
+# Documentation
+CHANGELOG.md
+release-body.md
+
+# Example project
+example/
+docs/
+
+# Development
+*.test.ts
+*.spec.ts
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# CodeBuddy
+.codebuddy/
+
+# Keep these files
+*.d.ts
 !dist/
-!package.json
-!README.md
-!LICENSE
+*.map

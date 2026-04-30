@@ -1,4 +1,4 @@
-import { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import type { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 
 // Re-export for convenience
 export type { AxiosRequestConfig, InternalAxiosRequestConfig };

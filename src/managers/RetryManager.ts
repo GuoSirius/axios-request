@@ -1,11 +1,10 @@
-import { AxiosRequestConfig } from 'axios';
-import {
+import type { AxiosRequestConfig } from 'axios';
+import type {
   RetryConfig,
   RetryShortcut,
   RetryContext,
 } from '../types';
 import { BaseManager } from './base/BaseManager';
-import { mergeConfig } from '../utils/configMerger';
 
 /**
  * 请求重试管理器
@@ -51,7 +50,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    */
   static normalize(config?: RetryShortcut | null): { enabled: boolean; config?: Partial<RetryConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: true }; // 默认开启
+      return { enabled: false }; // 除非明确配置，否则不开启
     }
     if (config === false) {
       return { enabled: false };
@@ -73,7 +72,8 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    * @param config - 重试配置（支持简写）
    */
   constructor(config: RetryShortcut = {}) {
-    super(normalizeConfig(config));
+    const { config: normalizedConfig } = RetryManager.normalize(config);
+    super(normalizedConfig || {});
   }
 
   /**
@@ -229,15 +229,3 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
   }
 }
 
-/**
- * 规范化 RetryConfig
- * @param config - 用户提供的配置（可能是简写）
- * @returns 标准化后的配置
- */
-function normalizeConfig(config: RetryShortcut): Partial<RetryConfig> {
-  if (!config) return {};
-  if (config === true) return { enabled: true };
-  if (typeof config === 'number') return { enabled: true, maxRetries: config };
-  if (typeof config === 'function') return { enabled: true, retryCondition: config };
-  return { ...config };
-}

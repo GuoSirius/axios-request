@@ -1,15 +1,11 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import {
+import axios from 'axios';
+import type { AxiosInstance } from 'axios';
+import type {
   AxiosRequestInstanceConfig,
   AxiosRequestConfigExtended,
   RequestContext,
-  TokenManagerConfig,
 } from '../types';
 import ManagerRegistry from './ManagerRegistry';
-import { TokenManager } from '../managers/TokenManager';
-import { DedupeManager } from '../managers/DedupeManager';
-import { CancelManager } from '../managers/CancelManager';
-import { RetryManager } from '../managers/RetryManager';
 
 /**
  * AxiosRequest - 基于 axios 的增强请求库

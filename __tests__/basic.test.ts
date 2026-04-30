@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AxiosRequest, generateRequestKey, toFormData, checkType, flattenFormData } from '../src';
-import axios from 'axios';
+import { TokenManager } from '../src/managers/TokenManager';
+import { DedupeManager } from '../src/managers/DedupeManager';
+import { CancelManager } from '../src/managers/CancelManager';
+import { RetryManager } from '../src/managers/RetryManager';
 
 // Mock axios
 vi.mock('axios', () => {
@@ -28,6 +31,7 @@ vi.mock('axios', () => {
 // AxiosRequest 基础功能
 // ============================================
 describe('AxiosRequest 基础功能', () => {
+
   let client: InstanceType<typeof AxiosRequest>;
 
   beforeEach(() => {
@@ -62,6 +66,7 @@ describe('AxiosRequest 基础功能', () => {
 // 请求 Key 生成
 // ============================================
 describe('generateRequestKey - 请求 Key 生成', () => {
+
   it('相同请求生成相同 key', () => {
     const config1 = { method: 'GET', url: '/api/users', params: { page: 1 } };
     const config2 = { method: 'GET', url: '/api/users', params: { page: 1 } };
@@ -97,6 +102,7 @@ describe('generateRequestKey - 请求 Key 生成', () => {
 // 防重复提交配置
 // ============================================
 describe('DedupeManager - 防重复提交', () => {
+
   it('默认配置', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -157,10 +163,9 @@ describe('DedupeManager - 防重复提交', () => {
     expect(client).toBeDefined();
   });
 
-  // ========== 新增简写方式测试 ==========
+  // ========== 简写方式测试 ==========
 
   it('字符串简写 - 直接作为 generateKey', () => {
-    // 字符串直接作为 generateKey，启用防重复提交
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
       dedupe: 'method:url:data.id',
@@ -210,6 +215,7 @@ describe('DedupeManager - 防重复提交', () => {
 // 请求取消配置
 // ============================================
 describe('CancelManager - 请求取消', () => {
+
   it('默认配置', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -248,7 +254,7 @@ describe('CancelManager - 请求取消', () => {
     expect(client).toBeDefined();
   });
 
-  // ========== 新增简写方式测试 ==========
+  // ========== 简写方式测试 ==========
 
   it('字符串简写 - 直接作为 generateKey', () => {
     const client = new AxiosRequest({
@@ -284,6 +290,7 @@ describe('CancelManager - 请求取消', () => {
 // 重试配置
 // ============================================
 describe('RetryManager - 失败重试', () => {
+
   it('默认配置', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -335,7 +342,7 @@ describe('RetryManager - 失败重试', () => {
     expect(client).toBeDefined();
   });
 
-  // ========== 新增简写方式测试 ==========
+  // ========== 简写方式测试 ==========
 
   it('函数简写 - 直接作为 retryCondition', () => {
     const client = new AxiosRequest({
@@ -364,6 +371,7 @@ describe('RetryManager - 失败重试', () => {
 // Token 管理配置
 // ============================================
 describe('TokenManager - Token 管理', () => {
+
   it('基本配置', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -422,7 +430,6 @@ describe('TokenManager - Token 管理', () => {
         refreshToken: async () => ({ accessToken: 'new-token' }),
         getAccessToken: () => 'current-token',
         setTokens: () => {},
-        // 自定义 token 赋值方式
         setAuthorization: (config, token) => {
           config.headers = config.headers || {};
           config.headers['X-Access-Token'] = `Bearer ${token}`;
@@ -440,11 +447,38 @@ describe('TokenManager - Token 管理', () => {
         refreshToken: async () => ({ accessToken: 'new-token' }),
         getAccessToken: () => 'token',
         setTokens: () => {},
-        // 只设置 token 值，不使用 Bearer
         setAuthorization: (config, token) => {
           config.headers = config.headers || {};
           config.headers['X-Token'] = token;
         },
+      },
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('带白名单 URLs', () => {
+    const client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+      token: {
+        isTokenExpired: (error) => error.response?.status === 401,
+        refreshToken: async () => ({ accessToken: 'new-token' }),
+        getAccessToken: () => 'token',
+        setTokens: () => {},
+        whitelistUrls: ['/api/public', /^\/api\/static/],
+      },
+    });
+    expect(client).toBeDefined();
+  });
+
+  it('带 isTokenExpiredFromResponse', () => {
+    const client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+      token: {
+        isTokenExpired: (error) => error.response?.status === 401,
+        isTokenExpiredFromResponse: (response) => response?.code === 401,
+        refreshToken: async () => ({ accessToken: 'new-token' }),
+        getAccessToken: () => 'token',
+        setTokens: () => {},
       },
     });
     expect(client).toBeDefined();
@@ -455,6 +489,7 @@ describe('TokenManager - Token 管理', () => {
 // 组合配置
 // ============================================
 describe('组合配置', () => {
+
   it('同时启用所有功能', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -486,9 +521,9 @@ describe('组合配置', () => {
   it('简写组合', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
-      dedupe: false,  // 简写
-      cancel: true,   // 简写
-      retry: 3,       // 简写
+      dedupe: false,
+      cancel: true,
+      retry: 3,
     });
     expect(client).toBeDefined();
   });
@@ -498,6 +533,7 @@ describe('组合配置', () => {
 // 单个请求级别配置
 // ============================================
 describe('单个请求级别配置', () => {
+
   let client: InstanceType<typeof AxiosRequest>;
 
   beforeEach(() => {
@@ -508,7 +544,6 @@ describe('单个请求级别配置', () => {
   });
 
   it('dedupe 配置结构正确', () => {
-    // 验证配置对象可以被正确构建（不执行实际请求）
     const config = { dedupe: false };
     expect(config.dedupe).toBe(false);
   });
@@ -547,12 +582,30 @@ describe('单个请求级别配置', () => {
     const config = { contentType: 'form' };
     expect(config.contentType).toBe('form');
   });
+
+  it('token: false 禁用配置正确', () => {
+    const config = { token: false };
+    expect(config.token).toBe(false);
+  });
+
+  it('token 配置对象结构正确', () => {
+    const config = {
+      token: {
+        isTokenExpired: () => false,
+        refreshToken: async () => ({ accessToken: 'token' }),
+        getAccessToken: () => 'token',
+        setTokens: () => {},
+      },
+    };
+    expect(config.token).toBeDefined();
+  });
 });
 
 // ============================================
 // clear 方法
 // ============================================
 describe('clear - 清除请求', () => {
+
   it('实例有 clear 方法', () => {
     const client = new AxiosRequest({
       baseURL: 'https://api.example.com',
@@ -569,9 +622,32 @@ describe('clear - 清除请求', () => {
 });
 
 // ============================================
+// destroy 方法
+// ============================================
+describe('destroy - 销毁实例', () => {
+
+  it('destroy 方法存在且可调用', () => {
+    const client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+    });
+    expect(typeof client.destroy).toBe('function');
+    expect(() => client.destroy()).not.toThrow();
+  });
+
+  it('销毁后 clear 仍然可用', () => {
+    const client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+    });
+    client.destroy();
+    expect(() => client.clear()).not.toThrow();
+  });
+});
+
+// ============================================
 // 导出工具函数
 // ============================================
 describe('导出验证', () => {
+
   it('toFormData 是函数', () => {
     expect(typeof toFormData).toBe('function');
   });
@@ -586,5 +662,114 @@ describe('导出验证', () => {
 
   it('generateRequestKey 是函数', () => {
     expect(typeof generateRequestKey).toBe('function');
+  });
+});
+
+// ============================================
+// 默认导出
+// ============================================
+describe('默认导出', () => {
+
+  it('AxiosRequest 可以从默认导出创建实例', async () => {
+    const AxiosRequestDefault = (await import('../src')).default;
+    const client = new AxiosRequestDefault({
+      baseURL: 'https://api.example.com',
+    });
+    expect(client).toBeDefined();
+  });
+});
+
+// ============================================
+// 构造函数参数
+// ============================================
+describe('构造函数参数', () => {
+
+  it('空配置创建实例', () => {
+    const client = new AxiosRequest();
+    expect(client).toBeDefined();
+  });
+
+  it('仅 baseURL', () => {
+    const client = new AxiosRequest({ baseURL: 'https://api.example.com' });
+    expect(client).toBeDefined();
+  });
+
+  it('多个 axios 配置', () => {
+    const client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+      timeout: 5000,
+      headers: { 'X-Custom': 'value' },
+      withCredentials: true,
+    });
+    expect(client).toBeDefined();
+  });
+});
+
+// ============================================
+// 方法调用
+// ============================================
+describe('方法调用签名', () => {
+
+  let client: InstanceType<typeof AxiosRequest>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    client = new AxiosRequest({
+      baseURL: 'https://api.example.com',
+    });
+  });
+
+  it('get 方法接受 url 和 config', () => {
+    expect(() => {
+      client.get('/api/users', { params: { page: 1 } });
+    }).not.toThrow();
+  });
+
+  it('get 方法只接受 url', () => {
+    expect(() => {
+      client.get('/api/users');
+    }).not.toThrow();
+  });
+
+  it('post 方法接受 url, data 和 config', () => {
+    expect(() => {
+      client.post('/api/users', { name: '张三' }, { timeout: 3000 });
+    }).not.toThrow();
+  });
+
+  it('post 方法只接受 url 和 data', () => {
+    expect(() => {
+      client.post('/api/users', { name: '张三' });
+    }).not.toThrow();
+  });
+
+  it('put 方法接受 url, data 和 config', () => {
+    expect(() => {
+      client.put('/api/users/1', { name: '李四' });
+    }).not.toThrow();
+  });
+
+  it('patch 方法接受 url, data 和 config', () => {
+    expect(() => {
+      client.patch('/api/users/1', { name: '王五' });
+    }).not.toThrow();
+  });
+
+  it('delete 方法接受 url 和 config', () => {
+    expect(() => {
+      client.delete('/api/users/1');
+    }).not.toThrow();
+  });
+
+  it('head 方法接受 url 和 config', () => {
+    expect(() => {
+      client.head('/api/users');
+    }).not.toThrow();
+  });
+
+  it('options 方法接受 url 和 config', () => {
+    expect(() => {
+      client.options('/api/users');
+    }).not.toThrow();
   });
 });

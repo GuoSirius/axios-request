@@ -37,8 +37,6 @@ import type {
 } from '../types';
 import type {
   AxiosRequestConfigExtended,
-  AxiosRequestConfig,
-  InternalAxiosRequestConfig,
   TokenManagerConfig,
   DedupeConfig,
   CancelConfig,
@@ -90,25 +88,25 @@ export default class ManagerRegistry {
       retry: config.retry,
     };
     
-    // Token：默认关闭，显式配置才创建
+    // Token：除非明确配置，否则不创建
     const tokenResult = TokenManager.normalize(config.token);
     if (tokenResult.enabled) {
       this.tokenManager = new TokenManager(tokenResult.config || undefined);
     }
-    
-    // Dedupe：默认开启，显式配置为 false 才关闭
+
+    // Dedupe：除非明确配置，否则不创建
     const dedupeResult = DedupeManager.normalize(config.dedupe);
     if (dedupeResult.enabled) {
       this.dedupeManager = new DedupeManager(dedupeResult.config || undefined);
     }
-    
-    // Cancel：默认开启，显式配置为 false 才关闭
+
+    // Cancel：除非明确配置，否则不创建
     const cancelResult = CancelManager.normalize(config.cancel);
     if (cancelResult.enabled) {
       this.cancelManager = new CancelManager(cancelResult.config || undefined);
     }
-    
-    // Retry：默认开启，显式配置为 false 才关闭
+
+    // Retry：除非明确配置，否则不创建
     const retryResult = RetryManager.normalize(config.retry);
     if (retryResult.enabled) {
       this.retryManager = new RetryManager(retryResult.config);
@@ -121,18 +119,26 @@ export default class ManagerRegistry {
    * @returns Token 管理器实例
    */
   getTokenManager(requestToken?: TokenManagerConfig | boolean): ITokenManager | undefined {
-    // 场景1：实例级有配置
+    // 请求级配置处理
+    if (requestToken !== undefined) {
+      const tokenResult = TokenManager.normalize(requestToken);
+      if (!tokenResult.enabled) {
+        // 请求级禁用：禁用（忽略实例级和私有级）
+        return undefined;
+      }
+      // 请求级启用：优先使用实例级，其次使用/创建私有级
+      if (this.tokenManager) {
+        return this.tokenManager;
+      }
+      return this.getOrCreatePrivateTokenManager(tokenResult.config);
+    }
+
+    // 无请求级配置：检查实例级
     if (this.tokenManager) {
       return this.tokenManager;
     }
-    
-    // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const tokenResult = TokenManager.normalize(requestToken);
-    if (tokenResult.enabled) {
-      return this.getOrCreatePrivateTokenManager(tokenResult.config);
-    }
-    
-    // 场景3：都没有
+
+    // 都没有：禁用
     return undefined;
   }
   
@@ -142,61 +148,85 @@ export default class ManagerRegistry {
    * @returns 防重复提交管理器实例
    */
   getDedupeManager(requestDedupe?: DedupeShortcut): IDedupeManager | undefined {
-    // 场景1：实例级有配置
+    // 请求级配置处理
+    if (requestDedupe !== undefined) {
+      const dedupeResult = DedupeManager.normalize(requestDedupe);
+      if (!dedupeResult.enabled) {
+        // 请求级禁用：禁用（忽略实例级和私有级）
+        return undefined;
+      }
+      // 请求级启用：优先使用实例级，其次使用/创建私有级
+      if (this.dedupeManager) {
+        return this.dedupeManager;
+      }
+      return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
+    }
+
+    // 无请求级配置：检查实例级
     if (this.dedupeManager) {
       return this.dedupeManager;
     }
-    
-    // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const dedupeResult = DedupeManager.normalize(requestDedupe);
-    if (dedupeResult.enabled) {
-      return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
-    }
-    
-    // 场景3：都没有，默认开启
-    return this.getOrCreatePrivateDedupeManager(undefined);
+
+    // 都没有：禁用
+    return undefined;
   }
-  
+
   /**
    * 获取请求取消管理器
    * @param requestCancel 请求级配置
    * @returns 请求取消管理器实例
    */
   getCancelManager(requestCancel?: CancelShortcut): ICancelManager | undefined {
-    // 场景1：实例级有配置
+    // 请求级配置处理
+    if (requestCancel !== undefined) {
+      const cancelResult = CancelManager.normalize(requestCancel);
+      if (!cancelResult.enabled) {
+        // 请求级禁用：禁用（忽略实例级和私有级）
+        return undefined;
+      }
+      // 请求级启用：优先使用实例级，其次使用/创建私有级
+      if (this.cancelManager) {
+        return this.cancelManager;
+      }
+      return this.getOrCreatePrivateCancelManager(cancelResult.config);
+    }
+
+    // 无请求级配置：检查实例级
     if (this.cancelManager) {
       return this.cancelManager;
     }
-    
-    // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const cancelResult = CancelManager.normalize(requestCancel);
-    if (cancelResult.enabled) {
-      return this.getOrCreatePrivateCancelManager(cancelResult.config);
-    }
-    
-    // 场景3：都没有，默认开启
-    return this.getOrCreatePrivateCancelManager(undefined);
+
+    // 都没有：禁用
+    return undefined;
   }
-  
+
   /**
    * 获取失败重试管理器
    * @param requestRetry 请求级配置
    * @returns 失败重试管理器实例
    */
   getRetryManager(requestRetry?: RetryShortcut): IRetryManager | undefined {
-    // 场景1：实例级有配置
+    // 请求级配置处理
+    if (requestRetry !== undefined) {
+      const retryResult = RetryManager.normalize(requestRetry);
+      if (!retryResult.enabled) {
+        // 请求级禁用：禁用（忽略实例级和私有级）
+        return undefined;
+      }
+      // 请求级启用：优先使用实例级，其次使用/创建私有级
+      if (this.retryManager) {
+        return this.retryManager;
+      }
+      return this.getOrCreatePrivateRetryManager(retryResult.config);
+    }
+
+    // 无请求级配置：检查实例级
     if (this.retryManager) {
       return this.retryManager;
     }
-    
-    // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const retryResult = RetryManager.normalize(requestRetry);
-    if (retryResult.enabled) {
-      return this.getOrCreatePrivateRetryManager(retryResult.config);
-    }
-    
-    // 场景3：都没有，默认开启
-    return this.getOrCreatePrivateRetryManager(undefined);
+
+    // 都没有：禁用
+    return undefined;
   }
   
   /**

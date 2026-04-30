@@ -1,12 +1,4 @@
-import { ConfigMergeOptions } from '../types';
-
-/**
- * 配置合并策略
- * - `merge`: 深度合并（默认）
- * - `replace`: 完全替换
- * - `shallow`: 浅合并
- */
-type ConfigMergeStrategy = 'merge' | 'replace' | 'shallow';
+import type { ConfigMergeOptions } from '../types';
 
 /**
  * 深度合并两个对象
@@ -40,7 +32,7 @@ export function deepMerge<T extends Record<string, any>>(
   const result: any = { ...target };
 
   for (const key in source) {
-    if (source.hasOwnProperty(key)) {
+    if (Object.hasOwn(source, key)) {
       const sourceValue = (source as any)[key];
       const targetValue = (target as any)[key];
 
@@ -93,7 +85,7 @@ export function shallowMerge<T extends Record<string, any>>(
   const result: any = { ...target };
 
   for (const key in source) {
-    if (source.hasOwnProperty(key)) {
+    if (Object.hasOwn(source, key)) {
       const value = (source as any)[key];
       if (options.allowUndefined || value !== undefined) {
         result[key] = value;

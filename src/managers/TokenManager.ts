@@ -1,12 +1,10 @@
-import { AxiosRequestConfig } from 'axios';
-import {
+import type { AxiosRequestConfig } from 'axios';
+import type {
   TokenManagerConfig,
-  TokenRefreshResult,
   TokenRefreshFailureReason,
   TokenContext,
 } from '../types';
 import { BaseManager } from './base/BaseManager';
-import { mergeConfig } from '../utils/configMerger';
 
 /**
  * Token 管理器 - 处理 token 过期自动刷新和请求队列
@@ -290,9 +288,9 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
   /**
    * 处理队列中的请求
    * @param error - 如果刷新失败，传入错误对象；否则传入 null
-   * @param newToken - 新的 token（可选）
+   * @param _newToken - 新的 token（可选，保留用于未来扩展）
    */
-  private processQueue(error: any, newToken?: string): void {
+  private processQueue(error: any, _newToken?: string): void {
     this.requestQueue.forEach((item) => {
       if (error) {
         // 刷新失败，拒绝所有队列中的请求

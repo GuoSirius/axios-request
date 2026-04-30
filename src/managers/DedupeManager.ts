@@ -1,5 +1,5 @@
-import { AxiosRequestConfig } from 'axios';
-import {
+import type { AxiosRequestConfig } from 'axios';
+import type {
   DedupeConfig,
   DedupeItem,
   DedupeContext,
@@ -7,7 +7,6 @@ import {
 } from '../types';
 import { BaseManager } from './base/BaseManager';
 import { normalizeGenerateKey } from '../utils/requestKey';
-import { mergeConfig } from '../utils/configMerger';
 
 /**
  * 防重复提交管理器
@@ -48,7 +47,7 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
    */
   static normalize(config?: DedupeShortcut | null): { enabled: boolean; config?: Partial<DedupeConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: true }; // 默认开启
+      return { enabled: false }; // 除非明确配置，否则不开启
     }
     if (config === false) {
       return { enabled: false };
@@ -76,7 +75,8 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
    * @param config - 防重复提交配置（支持简写）
    */
   constructor(config: DedupeShortcut = {}) {
-    super(normalizeConfig(config));
+    const { config: normalizedConfig } = DedupeManager.normalize(config);
+    super(normalizedConfig || {});
   }
 
   /**
@@ -195,16 +195,3 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
   }
 }
 
-/**
- * 规范化 DedupeConfig
- * @param config - 用户提供的配置（可能是简写）
- * @returns 标准化后的配置
- */
-function normalizeConfig(config: DedupeShortcut): Partial<DedupeConfig> {
-  if (!config) return {};
-  if (config === true) return { enabled: true };
-  if (Array.isArray(config)) return { enabled: true, methods: config.map(m => String(m).toUpperCase()) };
-  if (typeof config === 'string') return { enabled: true, generateKey: config };
-  if (typeof config === 'function') return { enabled: true, generateKey: config };
-  return { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) };
-}

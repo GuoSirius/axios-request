@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { RefreshCcw, Document, Close, Upload } from '@element-plus/icons-vue';
+import { RefreshCcw, Document, Close, Upload, Tools } from '@element-plus/icons-vue';
 
 const router = useRouter();
 
@@ -33,6 +33,13 @@ const features = [
     icon: Close,
     path: '/cancel',
     color: 'from-orange-500 to-red-500',
+  },
+  {
+    title: '工具函数',
+    description: '请求 key 生成、FormData 转换、配置合并等工具函数',
+    icon: Tools,
+    path: '/utils',
+    color: 'from-indigo-500 to-blue-500',
   },
 ];
 const goTo = (path: string) => {
