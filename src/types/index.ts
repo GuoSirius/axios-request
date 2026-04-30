@@ -513,10 +513,10 @@ export interface ManagerContext {
   enabled: boolean;
 }
 
-// ==================== 管理器类类型（将在管理器重构后启用） ====================
+// ==================== 导出管理器类类型 ====================
 
-// 注意：以下导出将在管理器重构完成后取消注释
-// export type { TokenManager } from '../managers/TokenManager';
-// export type { DedupeManager } from '../managers/DedupeManager';
-// export type { CancelManager } from '../managers/CancelManager';
-// export type { RetryManager } from '../managers/RetryManager';
+// 导出管理器类（用于类型注解）
+export type { TokenManager } from '../managers/TokenManager';
+export type { DedupeManager } from '../managers/DedupeManager';
+export type { CancelManager } from '../managers/CancelManager';
+export type { RetryManager } from '../managers/RetryManager';
