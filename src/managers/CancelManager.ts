@@ -39,11 +39,12 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
   /**
    * 规范化配置（静态方法，供外部调用）
    * @param config - 用户提供的配置（可能是简写）
+   * @param defaultEnabled - 当 config 为 undefined 时的默认启用状态
    * @returns { enabled: boolean, config?: Partial<CancelConfig> }
    */
-  static normalize(config?: CancelShortcut | null): { enabled: boolean; config?: Partial<CancelConfig> } {
+  static normalize(config?: CancelShortcut | null, defaultEnabled: boolean = false): { enabled: boolean; config?: Partial<CancelConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: true }; // 默认开启
+      return { enabled: defaultEnabled };
     }
     if (config === false) {
       return { enabled: false };

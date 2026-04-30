@@ -46,11 +46,12 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
   /**
    * 规范化配置（静态方法，供外部调用）
    * @param config - 用户提供的配置（可能是简写）
+   * @param defaultEnabled - 当 config 为 undefined 时的默认启用状态
    * @returns { enabled: boolean, config?: Partial<RetryConfig> }
    */
-  static normalize(config?: RetryShortcut | null): { enabled: boolean; config?: Partial<RetryConfig> } {
+  static normalize(config?: RetryShortcut | null, defaultEnabled: boolean = false): { enabled: boolean; config?: Partial<RetryConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: false }; // 默认关闭
+      return { enabled: defaultEnabled };
     }
     if (config === false) {
       return { enabled: false };

@@ -88,33 +88,33 @@ export default class ManagerRegistry {
   private readonly resolvedConfig: ResolvedConfig;
   
   constructor(config: AxiosRequestConfigExtended = {}) {
-    // 统一规范化所有配置
+    // 保存原始配置
     this.resolvedConfig = {
       token: config.token,
       dedupe: config.dedupe,
       cancel: config.cancel,
       retry: config.retry,
     };
-    
-    // Token：除非明确配置，否则不创建
+
+    // Token：默认关闭，显式配置才开启
     const tokenResult = TokenManager.normalize(config.token);
     if (tokenResult.enabled) {
       this.tokenManager = new TokenManager(tokenResult.config || undefined);
     }
 
-    // Dedupe：除非明确配置，否则不创建
-    const dedupeResult = DedupeManager.normalize(config.dedupe);
+    // Dedupe：实例级默认启用（传入 true 作为默认值）
+    const dedupeResult = DedupeManager.normalize(config.dedupe, true);
     if (dedupeResult.enabled) {
       this.dedupeManager = new DedupeManager(dedupeResult.config || undefined);
     }
 
-    // Cancel：除非明确配置，否则不创建
-    const cancelResult = CancelManager.normalize(config.cancel);
+    // Cancel：实例级默认启用（传入 true 作为默认值）
+    const cancelResult = CancelManager.normalize(config.cancel, true);
     if (cancelResult.enabled) {
       this.cancelManager = new CancelManager(cancelResult.config || undefined);
     }
 
-    // Retry：除非明确配置，否则不创建
+    // Retry：默认关闭，显式配置才开启
     const retryResult = RetryManager.normalize(config.retry);
     if (retryResult.enabled) {
       this.retryManager = new RetryManager(retryResult.config);
