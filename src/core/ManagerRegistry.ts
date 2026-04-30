@@ -49,11 +49,6 @@ import { CancelManager } from '../managers/CancelManager';
 import { RetryManager } from '../managers/RetryManager';
 
 /**
- * 简写配置规范化为完整配置
- */
-type NormalizedConfig<T> = T extends object ? T : { enabled: boolean };
-
-/**
  * 配置解析结果
  */
 type ResolvedConfig = {
@@ -62,58 +57,6 @@ type ResolvedConfig = {
   cancel?: CancelConfig | boolean;
   retry?: RetryConfig | boolean;
 };
-
-/**
- * 规范化 Token 配置
- */
-function normalizeTokenConfig(config?: TokenConfig | boolean): { enabled: boolean; config?: TokenConfig } {
-  if (config === false) {
-    return { enabled: false };
-  }
-  if (config === true || config === undefined) {
-    return { enabled: true };
-  }
-  return { enabled: true, config };
-}
-
-/**
- * 规范化 Dedupe 配置
- */
-function normalizeDedupeConfig(config?: DedupeConfig | boolean): { enabled: boolean; config?: DedupeConfig } {
-  if (config === false) {
-    return { enabled: false };
-  }
-  if (config === true || config === undefined) {
-    return { enabled: true };
-  }
-  return { enabled: true, config };
-}
-
-/**
- * 规范化 Cancel 配置
- */
-function normalizeCancelConfig(config?: CancelConfig | boolean): { enabled: boolean; config?: CancelConfig } {
-  if (config === false) {
-    return { enabled: false };
-  }
-  if (config === true || config === undefined) {
-    return { enabled: true };
-  }
-  return { enabled: true, config };
-}
-
-/**
- * 规范化 Retry 配置
- */
-function normalizeRetryConfig(config?: RetryConfig | boolean): { enabled: boolean; config?: RetryConfig } {
-  if (config === false) {
-    return { enabled: false };
-  }
-  if (config === true || config === undefined) {
-    return { enabled: true };
-  }
-  return { enabled: true, config };
-}
 
 export default class ManagerRegistry {
   // ==================== 实例级管理器（构造函数时确定） ====================
@@ -144,25 +87,25 @@ export default class ManagerRegistry {
     };
     
     // Token：默认关闭，显式配置才创建
-    const tokenResult = normalizeTokenConfig(config.token);
+    const tokenResult = TokenManager.normalize(config.token);
     if (tokenResult.enabled) {
       this.tokenManager = new TokenManager(tokenResult.config);
     }
     
     // Dedupe：默认开启，显式配置为 false 才关闭
-    const dedupeResult = normalizeDedupeConfig(config.dedupe);
+    const dedupeResult = DedupeManager.normalize(config.dedupe);
     if (dedupeResult.enabled) {
       this.dedupeManager = new DedupeManager(dedupeResult.config);
     }
     
     // Cancel：默认开启，显式配置为 false 才关闭
-    const cancelResult = normalizeCancelConfig(config.cancel);
+    const cancelResult = CancelManager.normalize(config.cancel);
     if (cancelResult.enabled) {
       this.cancelManager = new CancelManager(cancelResult.config);
     }
     
     // Retry：默认开启，显式配置为 false 才关闭
-    const retryResult = normalizeRetryConfig(config.retry);
+    const retryResult = RetryManager.normalize(config.retry);
     if (retryResult.enabled) {
       this.retryManager = new RetryManager(retryResult.config);
     }
@@ -180,7 +123,7 @@ export default class ManagerRegistry {
     }
     
     // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const tokenResult = normalizeTokenConfig(requestToken);
+    const tokenResult = TokenManager.normalize(requestToken);
     if (tokenResult.enabled) {
       return this.getOrCreatePrivateTokenManager(tokenResult.config);
     }
@@ -201,7 +144,7 @@ export default class ManagerRegistry {
     }
     
     // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const dedupeResult = normalizeDedupeConfig(requestDedupe);
+    const dedupeResult = DedupeManager.normalize(requestDedupe);
     if (dedupeResult.enabled) {
       return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
     }
@@ -222,7 +165,7 @@ export default class ManagerRegistry {
     }
     
     // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const cancelResult = normalizeCancelConfig(requestCancel);
+    const cancelResult = CancelManager.normalize(requestCancel);
     if (cancelResult.enabled) {
       return this.getOrCreatePrivateCancelManager(cancelResult.config);
     }
@@ -243,7 +186,7 @@ export default class ManagerRegistry {
     }
     
     // 场景2：实例级没有 + 请求级有配置，创建私有级
-    const retryResult = normalizeRetryConfig(requestRetry);
+    const retryResult = RetryManager.normalize(requestRetry);
     if (retryResult.enabled) {
       return this.getOrCreatePrivateRetryManager(retryResult.config);
     }

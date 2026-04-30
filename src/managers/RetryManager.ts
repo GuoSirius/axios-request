@@ -45,6 +45,30 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
   private pendingTimers: Set<ReturnType<typeof setTimeout>> = new Set();
 
   /**
+   * 规范化配置（静态方法，供外部调用）
+   * @param config - 用户提供的配置（可能是简写）
+   * @returns { enabled: boolean, config?: Partial<RetryConfig> }
+   */
+  static normalize(config: RetryShortcut): { enabled: boolean; config?: Partial<RetryConfig> } {
+    if (config === undefined || config === null) {
+      return { enabled: true }; // 默认开启
+    }
+    if (config === false) {
+      return { enabled: false };
+    }
+    if (config === true) {
+      return { enabled: true, config: { enabled: true } };
+    }
+    if (typeof config === 'number') {
+      return { enabled: true, config: { enabled: true, maxRetries: config } };
+    }
+    if (typeof config === 'function') {
+      return { enabled: true, config: { enabled: true, retryCondition: config } };
+    }
+    return { enabled: true, config: { ...config } };
+  }
+
+  /**
    * 构造函数
    * @param config - 重试配置（支持简写）
    */
@@ -58,7 +82,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    */
   protected getDefaultConfig(): RetryConfig {
     return {
-      enabled: false,
+      enabled: true,
       maxRetries: 3,
       retryDelay: 100,
       exponentialBackoff: false,

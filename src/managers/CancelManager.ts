@@ -37,6 +37,33 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
   /** 默认取消方法（静态属性，避免在父类构造函数中访问时未初始化） */
   private static readonly defaultMethods = ['GET'];
 
+  /**
+   * 规范化配置（静态方法，供外部调用）
+   * @param config - 用户提供的配置（可能是简写）
+   * @returns { enabled: boolean, config?: Partial<CancelConfig> }
+   */
+  static normalize(config: CancelShortcut): { enabled: boolean; config?: Partial<CancelConfig> } {
+    if (config === undefined || config === null) {
+      return { enabled: true }; // 默认开启
+    }
+    if (config === false) {
+      return { enabled: false };
+    }
+    if (config === true) {
+      return { enabled: true, config: { enabled: true } };
+    }
+    if (Array.isArray(config)) {
+      return { enabled: true, config: { enabled: true, methods: config.map(m => String(m).toUpperCase()) } };
+    }
+    if (typeof config === 'string') {
+      return { enabled: true, config: { enabled: true, generateKey: config } };
+    }
+    if (typeof config === 'function') {
+      return { enabled: true, config: { enabled: true, generateKey: config } };
+    }
+    return { enabled: true, config: { ...config, methods: config.methods?.map((m: string) => m.toUpperCase()) } };
+  }
+
   /** 待处理的请求 Map */
   private pendingRequests: Map<string, AbortController> = new Map();
 

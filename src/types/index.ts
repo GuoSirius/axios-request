@@ -267,7 +267,7 @@ export interface CancelContext {
  * ```
  */
 export interface RetryConfig {
-  /** 是否启用重试，默认 false */
+  /** 是否启用重试，默认 true */
   enabled?: boolean;
 
   /**

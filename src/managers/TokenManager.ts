@@ -58,6 +58,24 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
   /** 是否正在刷新 token */
   private isRefreshing: boolean = false;
 
+  /**
+   * 规范化配置（静态方法，供外部调用）
+   * @param config - 用户提供的配置
+   * @returns { enabled: boolean, config?: Partial<TokenManagerConfig> }
+   */
+  static normalize(config?: TokenManagerConfig): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
+    if (config === undefined || config === null) {
+      return { enabled: false }; // Token 默认关闭
+    }
+    if (config === false) {
+      return { enabled: false };
+    }
+    if (config === true) {
+      return { enabled: false, config: undefined }; // true 语义不明确，视为未配置
+    }
+    return { enabled: true, config };
+  }
+
   /** 请求队列（等待 token 刷新的请求） */
   private requestQueue: Array<{
     resolve: (value: any) => void;
