@@ -13,67 +13,66 @@ import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
 import { CancelManager } from '../managers/CancelManager';
 import { RetryManager } from '../managers/RetryManager';
-import { mergeConfig } from '../utils/configMerger';
 
 /**
  * 管理器注册表
  * 负责管理实例级和请求级管理器的生命周期
  *
- * 功能：
- * 1. 管理实例级管理器的创建和销毁
- * 2. 缓存请求级管理器（按配置复用）
- * 3. 提供统一的管理器获取接口
- *
  * 设计原则：
- * - 实例级管理器具优先
- * - 请求级管理器按配置缓存复用
- * - 配置合并时不修改原配置
+ * 1. 实例级管理器具优先（有实例级配置就用实例级）
+ * 2. 没有实例级配置时，使用私有级管理器
+ * 3. 私有级管理器按类型缓存，每个类型只创建一次，后续复用
+ * 4. 配置合并时不修改原配置
+ *
+ * 生命周期：
+ * - 私有级管理器在首次需要时创建
+ * - 后续请求复用同一个私有级管理器实例
+ * - destroy() 时清理所有资源
  *
  * @example
  * ```typescript
- * const registry = new ManagerRegistry({
- *   token: tokenConfig, // 实例级 Token 管理
- *   dedupe: true, // 实例级防重复提交（默认开启）
- *   cancel: true, // 实例级请求取消（默认开启）
- *   retry: false, // 实例级重试（默认关闭）
+ * // 实例化时配置了 dedupe，使用实例级
+ * const request = new AxiosRequest({
+ *   dedupe: true,
  * });
  *
- * // 获取实例级管理
- * const dedupeManager = registry.getDedupeManager();
+ * // 实例化时没有配置 dedupe，单个请求配置了，创建私有级并缓存
+ * request.get('/api', { dedupe: true });
  *
- * // 获取请求级管理（会缓存）
- * const retryManager = registry.getRetryManager({ enabled: true, maxRetries: 3 });
+ * // 后续请求也配置 dedupe，复用同一个私有级管理器
+ * request.post('/api2', { dedupe: true });
  * ```
  */
 export class ManagerRegistry {
-  /** 实例级 Token 管理 */
-  private tokenManager?: TokenManager;
+  /** 实例级 Token 管理（有显式配置时创建） */
+  private instanceTokenManager?: TokenManager;
 
-  /** 实例级防重复提交管理 */
-  private dedupeManager: DedupeManager;
+  /** 私有级 Token 管理（首次需要时创建，后续复用） */
+  private privateTokenManager?: TokenManager;
 
-  /** 实例级请求取消管理 */
-  private cancelManager: CancelManager;
+  /** 私有级防重复提交管理（首次需要时创建，后续复用） */
+  private privateDedupeManager?: DedupeManager;
 
-  /** 实例级请求重试管理 */
-  private retryManager: RetryManager;
+  /** 私有级请求取消管理（首次需要时创建，后续复用） */
+  private privateCancelManager?: CancelManager;
 
-  /** 请求级管理缓存（按配置哈希） */
-  private requestLevelCache: Map<string, TokenManager | DedupeManager | CancelManager | RetryManager> = new Map();
+  /** 私有级请求重试管理（首次需要时创建，后续复用） */
+  private privateRetryManager?: RetryManager;
+
+  /** 实例配置引用 */
+  private config: AxiosRequestInstanceConfig;
 
   /**
    * 构造函数
    * @param config - 实例配置
    */
   constructor(config: AxiosRequestInstanceConfig) {
-    // 创建实例级管理
-    if (config.token) {
-      this.tokenManager = new TokenManager(config.token);
-    }
+    this.config = config;
 
-    this.dedupeManager = new DedupeManager(config.dedupe ?? { enabled: true });
-    this.cancelManager = new CancelManager(config.cancel ?? { enabled: true });
-    this.retryManager = new RetryManager(config.retry ?? { enabled: false });
+    // 只有显式配置了 token 才创建实例级管理器
+    if (config.token) {
+      this.instanceTokenManager = new TokenManager(config.token);
+    }
   }
 
   // ==================== Token 管理 ====================
@@ -84,9 +83,9 @@ export class ManagerRegistry {
    * @returns Token 管理实例或 undefined
    *
    * 规则：
-   * 1. 如果有实例级 Token 管理，优先使用
-   * 2. 如果请求配置了 Token 管理，创建/获取请求级管理
-   * 3. 请求级配置为 false 时，返回 undefined
+   * 1. 有实例级管理，优先使用
+   * 2. 没有实例级，但请求配置了（true 或对象），使用/创建私有级
+   * 3. 请求级配置为 false，返回 undefined
    */
   getTokenManager(requestConfig?: TokenManagerConfig | boolean): TokenManager | undefined {
     // 请求级配置为 false，禁用 Token 管理
@@ -95,39 +94,29 @@ export class ManagerRegistry {
     }
 
     // 有实例级管理，优先使用
-    if (this.tokenManager) {
-      // 如果请求级有配置，需要合并
-      if (typeof requestConfig === 'object' && requestConfig !== true) {
-        // 创建合并后的请求级管理（缓存）
-        return this.getOrCreateRequestLevelTokenManager(requestConfig);
-      }
-      return this.tokenManager;
+    if (this.instanceTokenManager) {
+      return this.instanceTokenManager;
     }
 
-    // 没有实例级管理，但请求级有配置
+    // 没有实例级，请求级配置了（true 或对象）
     if (requestConfig === true || typeof requestConfig === 'object') {
-      const config = requestConfig === true ? {} : requestConfig;
-      return this.getOrCreateRequestLevelTokenManager(config);
+      // 首次使用时创建私有级管理器
+      if (!this.privateTokenManager) {
+        const config = requestConfig === true ? {} : requestConfig;
+        this.privateTokenManager = new TokenManager(config);
+      }
+      return this.privateTokenManager;
     }
 
     return undefined;
   }
 
   /**
-   * 创建或获取请求级 Token 管理（带缓存）
-   * @param config - Token 管理配置
-   * @returns Token 管理实例
+   * 获取 Token 私有级管理器（如果存在）
+   * 用于检查是否已有私有级管理器
    */
-  private getOrCreateRequestLevelTokenManager(config: TokenManagerConfig): TokenManager {
-    const cacheKey = this.generateCacheKey('token', config);
-    let manager = this.requestLevelCache.get(cacheKey) as TokenManager | undefined;
-
-    if (!manager) {
-      manager = new TokenManager(config);
-      this.requestLevelCache.set(cacheKey, manager);
-    }
-
-    return manager;
+  getPrivateTokenManager(): TokenManager | undefined {
+    return this.privateTokenManager;
   }
 
   // ==================== 防重复提交管理 ====================
@@ -136,46 +125,53 @@ export class ManagerRegistry {
    * 获取防重复提交管理
    * @param requestConfig - 请求级配置（可选）
    * @returns 防重复提交管理实例
+   *
+   * 规则：
+   * 1. 有实例级配置，创建实例级管理并使用
+   * 2. 没有实例级，请求配置了，创建/获取私有级管理
+   * 3. 都没有，返回默认启用的私有级管理
    */
   getDedupeManager(requestConfig?: DedupeShortcut): DedupeManager {
-    // 有实例级管理，优先使用
-    if (requestConfig === undefined || requestConfig === false) {
-      return this.dedupeManager;
+    // 有实例级配置，创建实例级管理
+    if (this.config.dedupe !== undefined) {
+      if (!this.instanceDedupeManager) {
+        this.instanceDedupeManager = new DedupeManager(this.normalizeDedupeConfig(this.config.dedupe));
+      }
+      return this.instanceDedupeManager;
     }
 
-    // 请求级有配置，创建/获取请求级管理
-    const normalizedConfig = this.normalizeDedupeConfig(requestConfig);
-    return this.getOrCreateRequestLevelDedupeManager(normalizedConfig);
+    // 请求级有配置，创建/获取私有级管理
+    if (requestConfig !== undefined) {
+      return this.getOrCreatePrivateDedupeManager(this.normalizeDedupeConfig(requestConfig));
+    }
+
+    // 都没有，返回默认启用的私有级管理
+    return this.getOrCreatePrivateDedupeManager({ enabled: true });
   }
 
+  /** 实例级防重复提交管理（延迟创建） */
+  private instanceDedupeManager?: DedupeManager;
+
   /**
-   * 创建或获取请求级防重复提交管理（带缓存）
-   * @param config - 防重复提交配置
-   * @returns 防重复提交管理实例
+   * 获取或创建私有级防重复提交管理
    */
-  private getOrCreateRequestLevelDedupeManager(config: Record<string, any>): DedupeManager {
-    const cacheKey = this.generateCacheKey('dedupe', config);
-    let manager = this.requestLevelCache.get(cacheKey) as DedupeManager | undefined;
-
-    if (!manager) {
-      manager = new DedupeManager(config);
-      this.requestLevelCache.set(cacheKey, manager);
+  private getOrCreatePrivateDedupeManager(config: Partial<DedupeConfig>): DedupeManager {
+    if (!this.privateDedupeManager) {
+      this.privateDedupeManager = new DedupeManager(config as DedupeConfig);
     }
-
-    return manager;
+    return this.privateDedupeManager;
   }
 
   /**
    * 规范化防重复提交配置
-   * @param config - 配置（可能是简写）
-   * @returns 标准化后的配置
    */
-  private normalizeDedupeConfig(config: DedupeShortcut): Record<string, any> {
+  private normalizeDedupeConfig(config: DedupeShortcut): DedupeConfig {
     if (config === true) return { enabled: true };
+    if (config === false) return { enabled: false };
     if (Array.isArray(config)) return { enabled: true, methods: config };
     if (typeof config === 'string') return { enabled: true, generateKey: config };
     if (typeof config === 'function') return { enabled: true, generateKey: config };
-    return config as Record<string, any>;
+    return { enabled: true, ...config } as DedupeConfig;
   }
 
   // ==================== 请求取消管理 ====================
@@ -186,44 +182,46 @@ export class ManagerRegistry {
    * @returns 请求取消管理实例
    */
   getCancelManager(requestConfig?: CancelShortcut): CancelManager {
-    // 有实例级管理，优先使用
-    if (requestConfig === undefined || requestConfig === false) {
-      return this.cancelManager;
+    // 有实例级配置，创建实例级管理
+    if (this.config.cancel !== undefined) {
+      if (!this.instanceCancelManager) {
+        this.instanceCancelManager = new CancelManager(this.normalizeCancelConfig(this.config.cancel));
+      }
+      return this.instanceCancelManager;
     }
 
-    // 请求级有配置，创建/获取请求级管理
-    const normalizedConfig = this.normalizeCancelConfig(requestConfig);
-    return this.getOrCreateRequestLevelCancelManager(normalizedConfig);
+    // 请求级有配置，创建/获取私有级管理
+    if (requestConfig !== undefined) {
+      return this.getOrCreatePrivateCancelManager(this.normalizeCancelConfig(requestConfig));
+    }
+
+    // 都没有，返回默认启用的私有级管理
+    return this.getOrCreatePrivateCancelManager({ enabled: true });
   }
 
+  /** 实例级请求取消管理（延迟创建） */
+  private instanceCancelManager?: CancelManager;
+
   /**
-   * 创建或获取请求级请求取消管理（带缓存）
-   * @param config - 请求取消配置
-   * @returns 请求取消管理实例
+   * 获取或创建私有级请求取消管理
    */
-  private getOrCreateRequestLevelCancelManager(config: Record<string, any>): CancelManager {
-    const cacheKey = this.generateCacheKey('cancel', config);
-    let manager = this.requestLevelCache.get(cacheKey) as CancelManager | undefined;
-
-    if (!manager) {
-      manager = new CancelManager(config);
-      this.requestLevelCache.set(cacheKey, manager);
+  private getOrCreatePrivateCancelManager(config: Partial<CancelConfig>): CancelManager {
+    if (!this.privateCancelManager) {
+      this.privateCancelManager = new CancelManager(config as CancelConfig);
     }
-
-    return manager;
+    return this.privateCancelManager;
   }
 
   /**
    * 规范化请求取消配置
-   * @param config - 配置（可能是简写）
-   * @returns 标准化后的配置
    */
-  private normalizeCancelConfig(config: CancelShortcut): Record<string, any> {
+  private normalizeCancelConfig(config: CancelShortcut): CancelConfig {
     if (config === true) return { enabled: true };
+    if (config === false) return { enabled: false };
     if (Array.isArray(config)) return { enabled: true, methods: config };
     if (typeof config === 'string') return { enabled: true, generateKey: config };
     if (typeof config === 'function') return { enabled: true, generateKey: config };
-    return config as Record<string, any>;
+    return { enabled: true, ...config } as CancelConfig;
   }
 
   // ==================== 请求重试管理 ====================
@@ -234,53 +232,51 @@ export class ManagerRegistry {
    * @returns 请求重试管理实例
    */
   getRetryManager(requestConfig?: RetryShortcut): RetryManager {
-    // 有实例级管理，优先使用
-    if (requestConfig === undefined || requestConfig === false) {
-      return this.retryManager;
+    // 有实例级配置，创建实例级管理
+    if (this.config.retry !== undefined) {
+      if (!this.instanceRetryManager) {
+        this.instanceRetryManager = new RetryManager(this.normalizeRetryConfig(this.config.retry));
+      }
+      return this.instanceRetryManager;
     }
 
-    // 请求级有配置，创建/获取请求级管理
-    const normalizedConfig = this.normalizeRetryConfig(requestConfig);
-    return this.getOrCreateRequestLevelRetryManager(normalizedConfig);
+    // 请求级有配置，创建/获取私有级管理
+    if (requestConfig !== undefined) {
+      return this.getOrCreatePrivateRetryManager(this.normalizeRetryConfig(requestConfig));
+    }
+
+    // 都没有，返回默认关闭的私有级管理
+    return this.getOrCreatePrivateRetryManager({ enabled: false });
   }
 
+  /** 实例级请求重试管理（延迟创建） */
+  private instanceRetryManager?: RetryManager;
+
   /**
-   * 创建或获取请求级请求重试管理（带缓存）
-   * @param config - 请求重试配置
-   * @returns 请求重试管理实例
+   * 获取或创建私有级请求重试管理
    */
-  private getOrCreateRequestLevelRetryManager(config: Record<string, any>): RetryManager {
-    const cacheKey = this.generateCacheKey('retry', config);
-    let manager = this.requestLevelCache.get(cacheKey) as RetryManager | undefined;
-
-    if (!manager) {
-      manager = new RetryManager(config);
-      this.requestLevelCache.set(cacheKey, manager);
+  private getOrCreatePrivateRetryManager(config: Partial<RetryConfig>): RetryManager {
+    if (!this.privateRetryManager) {
+      this.privateRetryManager = new RetryManager(config as RetryConfig);
     }
-
-    return manager;
+    return this.privateRetryManager;
   }
 
   /**
    * 规范化请求重试配置
-   * @param config - 配置（可能是简写）
-   * @returns 标准化后的配置
    */
-  private normalizeRetryConfig(config: RetryShortcut): Record<string, any> {
-    if (config === true) return { enabled: true };
+  private normalizeRetryConfig(config: RetryShortcut): RetryConfig {
+    if (config === true) return { enabled: true, maxRetries: 3 };
+    if (config === false) return { enabled: false };
     if (typeof config === 'number') return { enabled: true, maxRetries: config };
     if (typeof config === 'function') return { enabled: true, retryCondition: config };
-    return config as Record<string, any>;
+    return { enabled: false, ...config } as RetryConfig;
   }
 
   // ==================== 上下文创建 ====================
 
   /**
    * 创建 Token 上下文
-   * @param manager - Token 管理实例
-   * @param getToken - 请求级 token 获取函数（可选）
-   * @param whitelistUrls - 请求级白名单 URL（可选）
-   * @returns Token 上下文
    */
   createTokenContext(
     manager: TokenManager,
@@ -292,68 +288,23 @@ export class ManagerRegistry {
 
   /**
    * 创建防重复提交上下文
-   * @param manager - 防重复提交管理实例
-   * @param override - 请求级配置覆盖（可选）
-   * @returns 防重复提交上下文
    */
-  createDedupeContext(manager: DedupeManager, override?: any): DedupeContext {
+  createDedupeContext(manager: DedupeManager, override?: Partial<DedupeContext>): DedupeContext {
     return manager.createContext(override);
   }
 
   /**
    * 创建请求取消上下文
-   * @param manager - 请求取消管理实例
-   * @param override - 请求级配置覆盖（可选）
-   * @returns 请求取消上下文
    */
-  createCancelContext(manager: CancelManager, override?: any): CancelContext {
+  createCancelContext(manager: CancelManager, override?: Partial<CancelContext>): CancelContext {
     return manager.createContext(override);
   }
 
   /**
    * 创建请求重试上下文
-   * @param manager - 请求重试管理实例
-   * @param override - 请求级配置覆盖（可选）
-   * @returns 请求重试上下文
    */
-  createRetryContext(manager: RetryManager, override?: any): RetryContext {
+  createRetryContext(manager: RetryManager, override?: Partial<RetryContext>): RetryContext {
     return manager.createContext(override);
-  }
-
-  // ==================== 工具方法 ====================
-
-  /**
-   * 生成配置缓存 key
-   * @param type - 管理类型
-   * @param config - 配置对象
-   * @returns 缓存 key
-   */
-  private generateCacheKey(type: string, config: Record<string, any>): string {
-    // 使用 JSON.stringify 生成唯一 key（需要排序 key）
-    const sortedConfig = this.sortObjectKeys(config);
-    return `${type}:${JSON.stringify(sortedConfig)}`;
-  }
-
-  /**
-   * 对对象 key 进行排序（保证相同对象生成相同的 key）
-   * @param obj - 任意对象
-   * @returns 排序后的对象
-   */
-  private sortObjectKeys(obj: any): any {
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.sortObjectKeys(item));
-    }
-
-    if (obj !== null && typeof obj === 'object' && !(obj instanceof RegExp) && !(obj instanceof Function)) {
-      return Object.keys(obj)
-        .sort()
-        .reduce((result: any, key) => {
-          result[key] = this.sortObjectKeys(obj[key]);
-          return result;
-        }, {});
-    }
-
-    return obj;
   }
 
   // ==================== 资源管理 ====================
@@ -364,15 +315,20 @@ export class ManagerRegistry {
    */
   destroy(): void {
     // 销毁实例级管理
-    this.tokenManager?.destroy();
-    this.dedupeManager.destroy();
-    this.cancelManager.destroy();
-    this.retryManager.destroy();
+    this.instanceTokenManager?.destroy();
+    this.instanceDedupeManager?.destroy();
+    this.instanceCancelManager?.destroy();
+    this.instanceRetryManager?.destroy();
 
-    // 销毁请求级管理
-    this.requestLevelCache.forEach((manager) => {
-      manager.destroy();
-    });
-    this.requestLevelCache.clear();
+    // 销毁私有级管理
+    this.privateTokenManager?.destroy();
+    this.privateDedupeManager?.destroy();
+    this.privateCancelManager?.destroy();
+    this.privateRetryManager?.destroy();
   }
 }
+
+// 类型导入（确保类型可用）
+import type { DedupeConfig } from '../types';
+import type { CancelConfig } from '../types';
+import type { RetryConfig } from '../types';
