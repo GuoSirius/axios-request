@@ -1,20 +1,28 @@
 /**
  * 管理器注册表
- * 
+ *
  * 统一管理所有功能管理器，支持实例级和私有级两种模式。
- * 
+ *
  * 核心规则：
  * ┌─────────────────────────────────────────────────────────────┐
  * │ 1. Token：默认关闭，需要显式配置才能开启                       │
- * │ 2. Dedupe/Cancel/Retry：默认开启，可显式配置为 false 关闭     │
+ * │ 2. Dedupe/Cancel：默认开启，可显式配置为 false 关闭          │
+ * │ 3. Retry：默认关闭，需要显式配置才能开启                      │
  * └─────────────────────────────────────────────────────────────┘
- * 
- * | 场景                        | Token | Dedupe | Cancel | Retry |
- * |-----------------------------|-------|--------|--------|-------|
- * | 实例级有配置                 | 实例级 | 实例级 | 实例级 | 实例级 |
- * | 实例级没有 + 请求级有        | 私有级 | 私有级 | 私有级 | 私有级 |
- * | 都没有                       | 不使用 | 默认   | 默认   | 默认   |
- * 
+ *
+ * 优先级逻辑：
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │ 有实例级管理器 → 请求默认用它（除非显式禁用）                        │
+ * │ 无实例级管理器 → 只有请求显式要求才创建私有管理器                     │
+ * └─────────────────────────────────────────────────────────────────────┘
+ *
+ * | 场景                           | Token | Dedupe | Cancel | Retry |
+ * |--------------------------------|-------|--------|--------|-------|
+ * | 有实例级 + 请求无配置            | 实例级 | 实例级 | 实例级 | 实例级 |
+ * | 有实例级 + 请求显式禁用          | 不使用 | 不使用 | 不使用 | 不使用 |
+ * | 无实例级 + 请求有配置           | 私有级 | 私有级 | 私有级 | 私有级 |
+ * | 无实例级 + 请求无配置           | 不使用 | 不使用 | 不使用 | 不使用 |
+ *
  * @example
  * // 实例级管理器：实例化时配置
  * const api = new AxiosRequest({
@@ -22,7 +30,7 @@
  *   cancel: true,
  *   retry: { enabled: true, maxRetries: 3 },
  * });
- * 
+ *
  * // 私有级管理器：按需创建并缓存复用
  * const api = new AxiosRequest({});
  * api.get('/test', { retry: true });  // 创建私有级 retryManager
@@ -119,26 +127,25 @@ export default class ManagerRegistry {
    * @returns Token 管理器实例
    */
   getTokenManager(requestToken?: Partial<TokenManagerConfig> | boolean): ITokenManager | undefined {
-    // 请求级配置处理
-    if (requestToken !== undefined) {
-      const tokenResult = TokenManager.normalize(requestToken);
-      if (!tokenResult.enabled) {
-        // 请求级禁用：禁用（忽略实例级和私有级）
-        return undefined;
-      }
-      // 请求级启用：优先使用实例级，其次使用/创建私有级
-      if (this.tokenManager) {
-        return this.tokenManager;
-      }
-      return this.getOrCreatePrivateTokenManager(tokenResult.config);
-    }
-
-    // 无请求级配置：检查实例级
+    // 有实例级管理器：请求默认用它（除非显式禁用）
     if (this.tokenManager) {
+      if (requestToken !== undefined) {
+        const tokenResult = TokenManager.normalize(requestToken);
+        if (!tokenResult.enabled) {
+          return undefined; // 请求显式禁用
+        }
+      }
       return this.tokenManager;
     }
 
-    // 都没有：禁用
+    // 无实例级管理器：只有请求显式要求才创建私有管理器
+    if (requestToken !== undefined) {
+      const tokenResult = TokenManager.normalize(requestToken);
+      if (tokenResult.enabled) {
+        return this.getOrCreatePrivateTokenManager(tokenResult.config);
+      }
+    }
+
     return undefined;
   }
   
@@ -148,26 +155,25 @@ export default class ManagerRegistry {
    * @returns 防重复提交管理器实例
    */
   getDedupeManager(requestDedupe?: DedupeShortcut): IDedupeManager | undefined {
-    // 请求级配置处理
-    if (requestDedupe !== undefined) {
-      const dedupeResult = DedupeManager.normalize(requestDedupe);
-      if (!dedupeResult.enabled) {
-        // 请求级禁用：禁用（忽略实例级和私有级）
-        return undefined;
-      }
-      // 请求级启用：优先使用实例级，其次使用/创建私有级
-      if (this.dedupeManager) {
-        return this.dedupeManager;
-      }
-      return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
-    }
-
-    // 无请求级配置：检查实例级
+    // 有实例级管理器：请求默认用它（除非显式禁用）
     if (this.dedupeManager) {
+      if (requestDedupe !== undefined) {
+        const dedupeResult = DedupeManager.normalize(requestDedupe);
+        if (!dedupeResult.enabled) {
+          return undefined; // 请求显式禁用
+        }
+      }
       return this.dedupeManager;
     }
 
-    // 都没有：禁用
+    // 无实例级管理器：只有请求显式要求才创建私有管理器
+    if (requestDedupe !== undefined) {
+      const dedupeResult = DedupeManager.normalize(requestDedupe);
+      if (dedupeResult.enabled) {
+        return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
+      }
+    }
+
     return undefined;
   }
 
@@ -177,26 +183,25 @@ export default class ManagerRegistry {
    * @returns 请求取消管理器实例
    */
   getCancelManager(requestCancel?: CancelShortcut): ICancelManager | undefined {
-    // 请求级配置处理
-    if (requestCancel !== undefined) {
-      const cancelResult = CancelManager.normalize(requestCancel);
-      if (!cancelResult.enabled) {
-        // 请求级禁用：禁用（忽略实例级和私有级）
-        return undefined;
-      }
-      // 请求级启用：优先使用实例级，其次使用/创建私有级
-      if (this.cancelManager) {
-        return this.cancelManager;
-      }
-      return this.getOrCreatePrivateCancelManager(cancelResult.config);
-    }
-
-    // 无请求级配置：检查实例级
+    // 有实例级管理器：请求默认用它（除非显式禁用）
     if (this.cancelManager) {
+      if (requestCancel !== undefined) {
+        const cancelResult = CancelManager.normalize(requestCancel);
+        if (!cancelResult.enabled) {
+          return undefined; // 请求显式禁用
+        }
+      }
       return this.cancelManager;
     }
 
-    // 都没有：禁用
+    // 无实例级管理器：只有请求显式要求才创建私有管理器
+    if (requestCancel !== undefined) {
+      const cancelResult = CancelManager.normalize(requestCancel);
+      if (cancelResult.enabled) {
+        return this.getOrCreatePrivateCancelManager(cancelResult.config);
+      }
+    }
+
     return undefined;
   }
 
@@ -206,26 +211,25 @@ export default class ManagerRegistry {
    * @returns 失败重试管理器实例
    */
   getRetryManager(requestRetry?: RetryShortcut): IRetryManager | undefined {
-    // 请求级配置处理
-    if (requestRetry !== undefined) {
-      const retryResult = RetryManager.normalize(requestRetry);
-      if (!retryResult.enabled) {
-        // 请求级禁用：禁用（忽略实例级和私有级）
-        return undefined;
-      }
-      // 请求级启用：优先使用实例级，其次使用/创建私有级
-      if (this.retryManager) {
-        return this.retryManager;
-      }
-      return this.getOrCreatePrivateRetryManager(retryResult.config);
-    }
-
-    // 无请求级配置：检查实例级
+    // 有实例级管理器：请求默认用它（除非显式禁用）
     if (this.retryManager) {
+      if (requestRetry !== undefined) {
+        const retryResult = RetryManager.normalize(requestRetry);
+        if (!retryResult.enabled) {
+          return undefined; // 请求显式禁用
+        }
+      }
       return this.retryManager;
     }
 
-    // 都没有：禁用
+    // 无实例级管理器：只有请求显式要求才创建私有管理器
+    if (requestRetry !== undefined) {
+      const retryResult = RetryManager.normalize(requestRetry);
+      if (retryResult.enabled) {
+        return this.getOrCreatePrivateRetryManager(retryResult.config);
+      }
+    }
+
     return undefined;
   }
   

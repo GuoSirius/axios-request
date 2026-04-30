@@ -50,7 +50,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    */
   static normalize(config?: RetryShortcut | null): { enabled: boolean; config?: Partial<RetryConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: false }; // 除非明确配置，否则不开启
+      return { enabled: false }; // 默认关闭
     }
     if (config === false) {
       return { enabled: false };

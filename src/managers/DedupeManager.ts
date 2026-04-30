@@ -47,7 +47,7 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
    */
   static normalize(config?: DedupeShortcut | null): { enabled: boolean; config?: Partial<DedupeConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: false }; // 除非明确配置，否则不开启
+      return { enabled: true }; // 默认开启
     }
     if (config === false) {
       return { enabled: false };

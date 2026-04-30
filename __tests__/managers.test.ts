@@ -565,9 +565,9 @@ describe('TokenManager - Token 管理器', () => {
 describe('DedupeManager - 防重复提交管理器', () => {
 
   describe('normalize - 静态规范化方法', () => {
-    it('undefined 返回禁用', () => {
+    it('undefined 返回启用（默认开启）', () => {
       const result = DedupeManager.normalize(undefined);
-      expect(result.enabled).toBe(false);
+      expect(result.enabled).toBe(true);
     });
 
     it('true 返回启用', () => {
@@ -762,9 +762,9 @@ describe('DedupeManager - 防重复提交管理器', () => {
 describe('CancelManager - 请求取消管理器', () => {
 
   describe('normalize - 静态规范化方法', () => {
-    it('undefined 返回禁用', () => {
+    it('undefined 返回启用（默认开启）', () => {
       const result = CancelManager.normalize(undefined);
-      expect(result.enabled).toBe(false);
+      expect(result.enabled).toBe(true);
     });
 
     it('true 返回启用', () => {

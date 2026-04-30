@@ -43,7 +43,7 @@ export class CancelManager extends BaseManager<CancelConfig, CancelContext> {
    */
   static normalize(config?: CancelShortcut | null): { enabled: boolean; config?: Partial<CancelConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: false }; // 除非明确配置，否则不开启
+      return { enabled: true }; // 默认开启
     }
     if (config === false) {
       return { enabled: false };

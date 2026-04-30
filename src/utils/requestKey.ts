@@ -67,7 +67,7 @@ function resolveField(config: AxiosRequestConfig, field: string): string {
     const path = field === 'data' ? '' : field.substring(5);
     if (!path) {
       const data = config.data;
-      return data ? (typeof data === 'string' ? data : JSON.stringify(data)) : '';
+      return data ? (typeof data === 'string' ? data : JSON.stringify(sortObjectKeys(data))) : '';
     }
     const value = getValueByPath(config.data, path);
     return value !== undefined ? String(value) : '';
