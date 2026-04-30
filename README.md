@@ -184,6 +184,47 @@ await client.get('/public/news', {
 });
 ```
 
+#### 白名单 URL（不需要 Token 的请求）
+
+支持通过白名单配置来标记不需要 Token 的请求，提供两种方式：
+
+**方式一：实例级白名单（推荐）**
+
+```typescript
+const client = new AxiosRequest({
+  baseURL: 'https://api.example.com',
+  token: {
+    // ...其他配置
+    whitelistUrls: [
+      '/public/**',           // 公开接口
+      '/auth/login',         // 登录接口
+      /^\/static\//,         // 正则匹配静态资源
+    ],
+  },
+});
+
+// 以下请求自动跳过 Token 注入
+await client.get('/public/news');       // 匹配 /public/**
+await client.get('/auth/login');        // 匹配 /auth/login
+await client.get('/static/logo.png');   // 匹配正则 /^\/static\//
+```
+
+**方式二：单个请求禁用**
+
+```typescript
+// 单个请求禁用 Token
+await client.get('/public/news', {
+  token: false,
+});
+
+// 单个请求配置白名单
+await client.get('/public/news', {
+  token: {
+    whitelistUrls: ['/public/**'],
+  },
+});
+```
+
 #### 单个请求使用不同的 Token
 
 ```typescript
@@ -842,14 +883,11 @@ await client.get('/unreliable', { retry: 5 });
 
 #### 核心规则
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. 请求禁用 (xxx: false)      → 无管理器                   │
-│ 2. 实例有管理器               → 复用实例管理器              │
-│ 3. 实例无管理器，请求有配置   → 创建临时管理器              │
-│ 4. 实例无管理器，请求无配置   → 无管理器                   │
-└─────────────────────────────────────────────────────────────┘
-```
+| 场景 | Token | Dedupe | Cancel | Retry |
+|------|-------|--------|--------|-------|
+| 实例级有配置 | 用实例级 | 用实例级 | 用实例级 | 用实例级 |
+| 实例级没有 + 请求级有 | 用私有级(创建+缓存) | 用私有级(创建+缓存) | 用私有级(创建+缓存) | 用私有级(创建+缓存) |
+| 都没有 | 无管理器 | 无管理器 | 无管理器 | 无管理器 |
 
 #### 设计优势
 
@@ -857,6 +895,30 @@ await client.get('/unreliable', { retry: 5 });
 2. **上下文隔离**：每个请求通过独立的上下文对象实现隔离，无 Map 存储
 3. **零清理负担**：上下文是普通对象，引用丢失即被 GC，无需手动清理
 4. **配置不污染**：单个请求的配置只在当前请求生效，不影响实例配置
+5. **私有级缓存**：私有级管理器按类型缓存复用，避免重复创建
+
+#### 实例级管理器 vs 私有级管理器
+
+```typescript
+// 实例级管理器：实例化时配置，所有请求共享
+const api = new AxiosRequest({
+  dedupe: true,    // 实例级，实例化时创建
+  cancel: true,    // 实例级，所有请求复用同一个 cancelManager
+  retry: { enabled: true, maxRetries: 3 },  // 实例级
+});
+
+// 私有级管理器：按需创建，缓存复用
+const api = new AxiosRequest({});  // 没有配置任何管理器
+
+// 第一次使用 retry，创建私有级 retryManager
+api.get('/test1', { retry: true });
+
+// 第二次使用 retry，复用同一个私有级 retryManager
+api.get('/test2', { retry: true });
+
+// 第三次使用 retry，配置不同，也复用同一个私有级 retryManager
+api.get('/test3', { retry: { maxRetries: 5 } });
+```
 
 #### 上下文即对象
 

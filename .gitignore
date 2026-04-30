@@ -38,3 +38,11 @@ coverage/
 
 # Release
 release-body.md
+
+# Example project
+example/node_modules/
+example/dist/
+example/.nuxt/
+example/.output/
+example/.vite/
+example/**/*.local
