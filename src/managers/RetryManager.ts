@@ -49,7 +49,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    * @param defaultEnabled - 当 config 为 undefined 时的默认启用状态
    * @returns { enabled: boolean, config?: Partial<RetryConfig> }
    */
-  static normalize(config?: RetryShortcut | null, defaultEnabled: boolean = false): { enabled: boolean; config?: Partial<RetryConfig> } {
+  static normalize(config?: RetryShortcut | null, defaultEnabled: boolean = true): { enabled: boolean; config?: Partial<RetryConfig> } {
     if (config === undefined || config === null) {
       return { enabled: defaultEnabled };
     }
@@ -229,4 +229,3 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
     this.pendingTimers.clear();
   }
 }
-

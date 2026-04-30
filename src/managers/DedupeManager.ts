@@ -46,7 +46,7 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
    * @param defaultEnabled - 当 config 为 undefined 时的默认启用状态
    * @returns { enabled: boolean, config?: Partial<DedupeConfig> }
    */
-  static normalize(config?: DedupeShortcut | null, defaultEnabled: boolean = false): { enabled: boolean; config?: Partial<DedupeConfig> } {
+  static normalize(config?: DedupeShortcut | null, defaultEnabled: boolean = true): { enabled: boolean; config?: Partial<DedupeConfig> } {
     if (config === undefined || config === null) {
       return { enabled: defaultEnabled };
     }
@@ -173,7 +173,7 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
     });
 
     // 保存到待处理请求 Map
-    this.pendingRequests.set(key, { timer, promise, resolve: () => {}, reject: () => {} });
+    this.pendingRequests.set(key, { timer, promise, resolve: () => { }, reject: () => { } });
 
     return promise;
   }
@@ -195,4 +195,3 @@ export class DedupeManager extends BaseManager<DedupeConfig, DedupeContext> {
     this.clear();
   }
 }
-

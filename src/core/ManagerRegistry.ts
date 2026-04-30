@@ -70,23 +70,23 @@ type ResolvedConfig = {
 
 export default class ManagerRegistry {
   // ==================== 实例级管理器（构造函数时确定） ====================
-  
+
   private readonly tokenManager?: ITokenManager;
   private readonly dedupeManager?: IDedupeManager;
   private readonly cancelManager?: ICancelManager;
   private readonly retryManager?: IRetryManager;
-  
+
   // ==================== 私有级管理器（按需创建并缓存） ====================
-  
+
   private _privateTokenManager?: ITokenManager;
   private _privateDedupeManager?: IDedupeManager;
   private _privateCancelManager?: ICancelManager;
   private _privateRetryManager?: IRetryManager;
-  
+
   // ==================== 配置解析 ====================
-  
+
   private readonly resolvedConfig: ResolvedConfig;
-  
+
   constructor(config: AxiosRequestConfigExtended = {}) {
     // 保存原始配置
     this.resolvedConfig = {
@@ -102,25 +102,25 @@ export default class ManagerRegistry {
       this.tokenManager = new TokenManager(tokenResult.config || undefined);
     }
 
-    // Dedupe：实例级默认启用（传入 true 作为默认值）
-    const dedupeResult = DedupeManager.normalize(config.dedupe, true);
+    // Dedupe：实例级默认启用
+    const dedupeResult = DedupeManager.normalize(config.dedupe);
     if (dedupeResult.enabled) {
       this.dedupeManager = new DedupeManager(dedupeResult.config || undefined);
     }
 
-    // Cancel：实例级默认启用（传入 true 作为默认值）
-    const cancelResult = CancelManager.normalize(config.cancel, true);
+    // Cancel：实例级默认启用
+    const cancelResult = CancelManager.normalize(config.cancel);
     if (cancelResult.enabled) {
       this.cancelManager = new CancelManager(cancelResult.config || undefined);
     }
 
-    // Retry：默认关闭，显式配置才开启
+    // Retry：实例级默认启用
     const retryResult = RetryManager.normalize(config.retry);
     if (retryResult.enabled) {
       this.retryManager = new RetryManager(retryResult.config);
     }
   }
-  
+
   /**
    * 获取 Token 管理器
    * @param requestToken 请求级配置
@@ -130,7 +130,7 @@ export default class ManagerRegistry {
     // 有实例级管理器：请求默认用它（除非显式禁用）
     if (this.tokenManager) {
       if (requestToken !== undefined) {
-        const tokenResult = TokenManager.normalize(requestToken);
+        const tokenResult = TokenManager.normalize(requestToken, true);
         if (!tokenResult.enabled) {
           return undefined; // 请求显式禁用
         }
@@ -148,7 +148,7 @@ export default class ManagerRegistry {
 
     return undefined;
   }
-  
+
   /**
    * 获取防重复提交管理器
    * @param requestDedupe 请求级配置
@@ -168,7 +168,7 @@ export default class ManagerRegistry {
 
     // 无实例级管理器：只有请求显式要求才创建私有管理器
     if (requestDedupe !== undefined) {
-      const dedupeResult = DedupeManager.normalize(requestDedupe);
+      const dedupeResult = DedupeManager.normalize(requestDedupe, false);
       if (dedupeResult.enabled) {
         return this.getOrCreatePrivateDedupeManager(dedupeResult.config);
       }
@@ -196,7 +196,7 @@ export default class ManagerRegistry {
 
     // 无实例级管理器：只有请求显式要求才创建私有管理器
     if (requestCancel !== undefined) {
-      const cancelResult = CancelManager.normalize(requestCancel);
+      const cancelResult = CancelManager.normalize(requestCancel, false);
       if (cancelResult.enabled) {
         return this.getOrCreatePrivateCancelManager(cancelResult.config);
       }
@@ -224,7 +224,7 @@ export default class ManagerRegistry {
 
     // 无实例级管理器：只有请求显式要求才创建私有管理器
     if (requestRetry !== undefined) {
-      const retryResult = RetryManager.normalize(requestRetry);
+      const retryResult = RetryManager.normalize(requestRetry, false);
       if (retryResult.enabled) {
         return this.getOrCreatePrivateRetryManager(retryResult.config);
       }
@@ -232,7 +232,7 @@ export default class ManagerRegistry {
 
     return undefined;
   }
-  
+
   /**
    * 获取或创建私有级 Token 管理器
    */
@@ -242,7 +242,7 @@ export default class ManagerRegistry {
     }
     return this._privateTokenManager;
   }
-  
+
   /**
    * 获取或创建私有级防重复提交管理器
    */
@@ -252,7 +252,7 @@ export default class ManagerRegistry {
     }
     return this._privateDedupeManager;
   }
-  
+
   /**
    * 获取或创建私有级请求取消管理器
    */
@@ -262,7 +262,7 @@ export default class ManagerRegistry {
     }
     return this._privateCancelManager;
   }
-  
+
   /**
    * 获取或创建私有级失败重试管理器
    */
@@ -272,9 +272,9 @@ export default class ManagerRegistry {
     }
     return this._privateRetryManager;
   }
-  
+
   // ==================== 生命周期 ====================
-  
+
   /**
    * 销毁所有管理器，释放资源
    */
@@ -283,7 +283,7 @@ export default class ManagerRegistry {
     this.dedupeManager?.destroy();
     this.cancelManager?.destroy();
     this.retryManager?.destroy();
-    
+
     this._privateTokenManager?.destroy();
     this._privateDedupeManager?.destroy();
     this._privateCancelManager?.destroy();

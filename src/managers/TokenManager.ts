@@ -59,17 +59,18 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
   /**
    * 规范化配置（静态方法，供外部调用）
    * @param config - 用户提供的配置（可能是简写）
+   * @param defaultEnabled - 当 config 为 undefined 时的默认启用状态
    * @returns { enabled: boolean, config?: Partial<TokenManagerConfig> }
    */
-  static normalize(config?: Partial<TokenManagerConfig> | boolean | null): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
+  static normalize(config?: Partial<TokenManagerConfig> | boolean | null, defaultEnabled: boolean = false): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
     if (config === undefined || config === null) {
-      return { enabled: false }; // Token 默认关闭
+      return { enabled: defaultEnabled }; // Token 默认关闭
     }
     if (config === false) {
       return { enabled: false };
     }
     if (config === true) {
-      return { enabled: false, config: undefined }; // true 语义不明确，视为未配置
+      return { enabled: defaultEnabled, config: defaultEnabled ? {} : undefined }; // true 语义不明确，视为未配置
     }
     return { enabled: true, config };
   }
@@ -88,7 +89,7 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
     return {
       isTokenExpired: () => false,
       getAccessToken: () => null,
-      setTokens: () => {},
+      setTokens: () => { },
       refreshToken: async () => ({ accessToken: '' }),
       whitelistUrls: [],
     };
