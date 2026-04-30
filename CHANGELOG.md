@@ -6,6 +6,20 @@
 
 <!-- AUTO_GENERATED -->
 
+## 1.4.1 (2026-04-30)
+
+### ✨ 新功能
+
+- set DedupeManager and CancelManager to enabled by default
+### ⚡ 性能优化
+
+- optimize default config
+### ♻️ 代码重构
+
+- unify normalize method behavior across all managers
+- add defaultEnabled parameter to normalize methods
+
+
 ## 1.4.0 (2026-04-30)
 
 ### ✨ 新功能
