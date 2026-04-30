@@ -565,14 +565,14 @@ describe('TokenManager - Token 管理器', () => {
 describe('DedupeManager - 防重复提交管理器', () => {
 
   describe('normalize - 静态规范化方法', () => {
-    it('undefined + 无 defaultEnabled 返回禁用（请求级默认）', () => {
+    it('undefined + 无 defaultEnabled 返回启用（实例级默认）', () => {
       const result = DedupeManager.normalize(undefined);
-      expect(result.enabled).toBe(false);
+      expect(result.enabled).toBe(true);
     });
 
-    it('undefined + defaultEnabled=true 返回启用（实例级默认）', () => {
-      const result = DedupeManager.normalize(undefined, true);
-      expect(result.enabled).toBe(true);
+    it('undefined + defaultEnabled=false 返回禁用（请求级默认）', () => {
+      const result = DedupeManager.normalize(undefined, false);
+      expect(result.enabled).toBe(false);
     });
 
     it('true 返回启用', () => {
@@ -767,14 +767,14 @@ describe('DedupeManager - 防重复提交管理器', () => {
 describe('CancelManager - 请求取消管理器', () => {
 
   describe('normalize - 静态规范化方法', () => {
-    it('undefined + 无 defaultEnabled 返回禁用（请求级默认）', () => {
+    it('undefined + 无 defaultEnabled 返回启用（实例级默认）', () => {
       const result = CancelManager.normalize(undefined);
-      expect(result.enabled).toBe(false);
+      expect(result.enabled).toBe(true);
     });
 
-    it('undefined + defaultEnabled=true 返回启用（实例级默认）', () => {
-      const result = CancelManager.normalize(undefined, true);
-      expect(result.enabled).toBe(true);
+    it('undefined + defaultEnabled=false 返回禁用（请求级默认）', () => {
+      const result = CancelManager.normalize(undefined, false);
+      expect(result.enabled).toBe(false);
     });
 
     it('true 返回启用', () => {
@@ -896,8 +896,13 @@ describe('CancelManager - 请求取消管理器', () => {
 describe('RetryManager - 重试管理器', () => {
 
   describe('normalize - 静态规范化方法', () => {
-    it('undefined 返回禁用', () => {
+    it('undefined + 无 defaultEnabled 返回启用（实例级默认）', () => {
       const result = RetryManager.normalize(undefined);
+      expect(result.enabled).toBe(true);
+    });
+
+    it('undefined + defaultEnabled=false 返回禁用（请求级默认）', () => {
+      const result = RetryManager.normalize(undefined, false);
       expect(result.enabled).toBe(false);
     });
 
