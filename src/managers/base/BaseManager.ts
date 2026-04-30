@@ -40,7 +40,10 @@ import { mergeConfig as mergeConfigUtil, deepMerge as deepMergeUtil } from '../.
  * }
  * ```
  */
-export abstract class BaseManager<TConfig extends ManagerDefaultConfig, TContext extends ManagerContext> {
+export abstract class BaseManager<
+  TConfig extends Record<string, any>,
+  TContext extends Record<string, any>
+> {
   /** 默认配置（合并后的） */
   protected defaultConfig: TConfig;
 
@@ -49,9 +52,9 @@ export abstract class BaseManager<TConfig extends ManagerDefaultConfig, TContext
 
   /**
    * 构造函数
-   * @param config - 用户提供的配置（部分）
+   * @param config - 用户提供的配置（部分，可选）
    */
-  constructor(config: Partial<TConfig>) {
+  constructor(config?: Partial<TConfig>) {
     this.defaultConfig = this.mergeWithDefaults(config);
   }
 
@@ -80,12 +83,12 @@ export abstract class BaseManager<TConfig extends ManagerDefaultConfig, TContext
 
   /**
    * 合并用户配置与默认配置
-   * @param config - 用户提供的配置（部分）
+   * @param config - 用户提供的配置（部分，可选）
    * @returns 合并后的完整配置
    */
-  protected mergeWithDefaults(config: Partial<TConfig>): TConfig {
+  protected mergeWithDefaults(config?: Partial<TConfig>): TConfig {
     const defaults = this.getDefaultConfig();
-    return this.mergeConfig(config, defaults);
+    return this.mergeConfig(config || {}, defaults);
   }
 
   /**
@@ -137,7 +140,7 @@ export abstract class BaseManager<TConfig extends ManagerDefaultConfig, TContext
    * @returns 是否启用
    */
   isEnabled(): boolean {
-    return this.defaultConfig.enabled;
+    return (this.defaultConfig as any).enabled ?? false;
   }
 
   /**

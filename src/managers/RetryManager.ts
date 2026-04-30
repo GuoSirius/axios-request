@@ -49,7 +49,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
    * @param config - 用户提供的配置（可能是简写）
    * @returns { enabled: boolean, config?: Partial<RetryConfig> }
    */
-  static normalize(config: RetryShortcut): { enabled: boolean; config?: Partial<RetryConfig> } {
+  static normalize(config?: RetryShortcut | null): { enabled: boolean; config?: Partial<RetryConfig> } {
     if (config === undefined || config === null) {
       return { enabled: true }; // 默认开启
     }
@@ -109,7 +109,7 @@ export class RetryManager extends BaseManager<RetryConfig, RetryContext> {
   createContext(override?: Partial<RetryConfig>): RetryContext {
     const config = this.mergeConfig(override || {});
     return {
-      enabled: config.enabled,
+      enabled: config.enabled ?? false,
       maxRetries: config.maxRetries!,
       retryDelay: config.retryDelay!,
       exponentialBackoff: config.exponentialBackoff!,

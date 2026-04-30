@@ -157,11 +157,11 @@ export class AxiosRequest {
 
     // 重试处理
     const retryManager = this.registry.getRetryManager();
-    if (ctx.retry && retryManager.shouldRetry(ctx.retry, error.config)) {
+    if (ctx.retry && retryManager?.shouldRetry(ctx.retry, error.config)) {
       const retryCount = (error.config as any)._retryCount || 0;
-      if (retryManager.shouldRetryOnError(ctx.retry, error, retryCount)) {
+      if (retryManager?.shouldRetryOnError(ctx.retry, error, retryCount)) {
         try {
-          return await retryManager.retry(
+          return await retryManager?.retry(
             ctx.retry,
             error.config,
             (config) => this.instance.request(config),
@@ -186,46 +186,48 @@ export class AxiosRequest {
     const ctx: RequestContext = {};
 
     // Token 上下文
-    if (config.token !== false) {
-      const tokenManager = this.registry.getTokenManager(config.token);
-      if (tokenManager) {
-        // 获取白名单 URL
-        let whitelistUrls: (string | RegExp)[] = [];
-        if (typeof config.token === 'object' && config.token !== true) {
-          whitelistUrls = config.token.whitelistUrls || [];
-        }
-
-        // 创建上下文
-        ctx.token = this.registry.createTokenContext(
-          tokenManager,
-          typeof config.token === 'object' && config.token !== true
-            ? config.token.getAccessToken
-            : undefined,
-          whitelistUrls
-        );
+    const tokenManager = this.registry.getTokenManager(config.token);
+    if (tokenManager) {
+      // 如果请求级有配置对象，则使用请求级配置创建上下文
+      if (config.token && typeof config.token === 'object') {
+        ctx.token = tokenManager.createContext(config.token);
+      } else {
+        ctx.token = tokenManager.createContext();
       }
     }
 
     // Dedupe 上下文
     const dedupeManager = this.registry.getDedupeManager(config.dedupe);
-    ctx.dedupe = this.registry.createDedupeContext(
-      dedupeManager,
-      typeof config.dedupe === 'object' ? config.dedupe : undefined
-    );
+    if (dedupeManager) {
+      const dedupeConfig = config.dedupe;
+      if (dedupeConfig && typeof dedupeConfig === 'object' && !Array.isArray(dedupeConfig)) {
+        ctx.dedupe = dedupeManager.createContext(dedupeConfig);
+      } else {
+        ctx.dedupe = dedupeManager.createContext();
+      }
+    }
 
     // Cancel 上下文
     const cancelManager = this.registry.getCancelManager(config.cancel);
-    ctx.cancel = this.registry.createCancelContext(
-      cancelManager,
-      typeof config.cancel === 'object' ? config.cancel : undefined
-    );
+    if (cancelManager) {
+      const cancelConfig = config.cancel;
+      if (cancelConfig && typeof cancelConfig === 'object' && !Array.isArray(cancelConfig)) {
+        ctx.cancel = cancelManager.createContext(cancelConfig);
+      } else {
+        ctx.cancel = cancelManager.createContext();
+      }
+    }
 
     // Retry 上下文
     const retryManager = this.registry.getRetryManager(config.retry);
-    ctx.retry = this.registry.createRetryContext(
-      retryManager,
-      typeof config.retry === 'object' ? config.retry : undefined
-    );
+    if (retryManager) {
+      const retryConfig = config.retry;
+      if (retryConfig && typeof retryConfig === 'object' && !Array.isArray(retryConfig) && typeof retryConfig !== 'function') {
+        ctx.retry = retryManager.createContext(retryConfig);
+      } else {
+        ctx.retry = retryManager.createContext();
+      }
+    }
 
     return ctx;
   }
@@ -292,7 +294,7 @@ export class AxiosRequest {
 
     // 防重复提交
     const dedupeManager = this.registry.getDedupeManager();
-    if (ctx.dedupe && dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
+    if (ctx.dedupe && dedupeManager && dedupeManager.shouldDedupe(ctx.dedupe, finalConfig)) {
       return await dedupeManager.dedupe(
         ctx.dedupe,
         finalConfig,
@@ -302,7 +304,7 @@ export class AxiosRequest {
 
     // 请求取消
     const cancelManager = this.registry.getCancelManager();
-    if (ctx.cancel && cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
+    if (ctx.cancel && cancelManager && cancelManager.shouldCancel(ctx.cancel, finalConfig)) {
       finalConfig = cancelManager.setupCancel(ctx.cancel, finalConfig) as typeof finalConfig;
     }
 
@@ -432,8 +434,8 @@ export class AxiosRequest {
    * - 取消请求取消的待处理请求
    */
   clear(): void {
-    this.registry.getDedupeManager().clear();
-    this.registry.getCancelManager().clear();
+    this.registry.getDedupeManager()?.clear();
+    this.registry.getCancelManager()?.clear();
   }
 
   /**

@@ -60,10 +60,10 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
 
   /**
    * 规范化配置（静态方法，供外部调用）
-   * @param config - 用户提供的配置
+   * @param config - 用户提供的配置（可能是简写）
    * @returns { enabled: boolean, config?: Partial<TokenManagerConfig> }
    */
-  static normalize(config?: TokenManagerConfig): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
+  static normalize(config?: TokenManagerConfig | boolean | null): { enabled: boolean; config?: Partial<TokenManagerConfig> } {
     if (config === undefined || config === null) {
       return { enabled: false }; // Token 默认关闭
     }
@@ -98,8 +98,7 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
 
   /**
    * 创建请求上下文
-   * @param getToken - 请求级别的 token 获取函数（可选，优先级高于全局）
-   * @param whitelistUrls - 请求级别的白名单 URL（可选，会合并到全局白名单）
+   * @param override - 请求级别的配置覆盖（可选，优先级高于全局）
    * @returns 请求上下文
    *
    * @example
@@ -108,23 +107,22 @@ export class TokenManager extends BaseManager<TokenManagerConfig, TokenContext> 
    * const context = tokenManager.createContext();
    *
    * // 使用请求级别的 token 获取函数
-   * const context = tokenManager.createContext(
-   *   () => sessionStorage.getItem('token')
-   * );
+   * const context = tokenManager.createContext({
+   *   getAccessToken: () => sessionStorage.getItem('token'),
+   *   whitelistUrls: ['/api/public'],
+   * });
    * ```
    */
-  createContext(
-    getToken?: () => string | null,
-    whitelistUrls?: (string | RegExp)[]
-  ): TokenContext {
+  createContext(override?: Partial<TokenManagerConfig> | null): TokenContext {
+    const config = this.mergeConfig(override || {});
     // 合并白名单 URL
     const mergedWhitelistUrls = [
       ...(this.defaultConfig.whitelistUrls || []),
-      ...(whitelistUrls || []),
+      ...(config.whitelistUrls || []),
     ];
 
     return {
-      getToken: getToken || null,
+      getToken: config.getAccessToken || null,
       whitelistUrls: mergedWhitelistUrls,
     };
   }

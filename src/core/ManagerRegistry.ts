@@ -36,12 +36,16 @@ import type {
   RetryManager as IRetryManager,
 } from '../types';
 import type {
+  AxiosRequestConfigExtended,
   AxiosRequestConfig,
-  TokenConfig,
+  InternalAxiosRequestConfig,
+  TokenManagerConfig,
   DedupeConfig,
   CancelConfig,
   RetryConfig,
-  InternalAxiosRequestConfig,
+  DedupeShortcut,
+  CancelShortcut,
+  RetryShortcut,
 } from '../types';
 import { TokenManager } from '../managers/TokenManager';
 import { DedupeManager } from '../managers/DedupeManager';
@@ -52,10 +56,10 @@ import { RetryManager } from '../managers/RetryManager';
  * 配置解析结果
  */
 type ResolvedConfig = {
-  token?: TokenConfig | boolean;
-  dedupe?: DedupeConfig | boolean;
-  cancel?: CancelConfig | boolean;
-  retry?: RetryConfig | boolean;
+  token?: TokenManagerConfig | boolean;
+  dedupe?: DedupeShortcut;
+  cancel?: CancelShortcut;
+  retry?: RetryShortcut;
 };
 
 export default class ManagerRegistry {
@@ -77,7 +81,7 @@ export default class ManagerRegistry {
   
   private readonly resolvedConfig: ResolvedConfig;
   
-  constructor(config: AxiosRequestConfig = {}) {
+  constructor(config: AxiosRequestConfigExtended = {}) {
     // 统一规范化所有配置
     this.resolvedConfig = {
       token: config.token,
@@ -89,19 +93,19 @@ export default class ManagerRegistry {
     // Token：默认关闭，显式配置才创建
     const tokenResult = TokenManager.normalize(config.token);
     if (tokenResult.enabled) {
-      this.tokenManager = new TokenManager(tokenResult.config);
+      this.tokenManager = new TokenManager(tokenResult.config || undefined);
     }
     
     // Dedupe：默认开启，显式配置为 false 才关闭
     const dedupeResult = DedupeManager.normalize(config.dedupe);
     if (dedupeResult.enabled) {
-      this.dedupeManager = new DedupeManager(dedupeResult.config);
+      this.dedupeManager = new DedupeManager(dedupeResult.config || undefined);
     }
     
     // Cancel：默认开启，显式配置为 false 才关闭
     const cancelResult = CancelManager.normalize(config.cancel);
     if (cancelResult.enabled) {
-      this.cancelManager = new CancelManager(cancelResult.config);
+      this.cancelManager = new CancelManager(cancelResult.config || undefined);
     }
     
     // Retry：默认开启，显式配置为 false 才关闭
@@ -116,7 +120,7 @@ export default class ManagerRegistry {
    * @param requestToken 请求级配置
    * @returns Token 管理器实例
    */
-  getTokenManager(requestToken?: TokenConfig | boolean): ITokenManager | undefined {
+  getTokenManager(requestToken?: TokenManagerConfig | boolean): ITokenManager | undefined {
     // 场景1：实例级有配置
     if (this.tokenManager) {
       return this.tokenManager;
@@ -137,7 +141,7 @@ export default class ManagerRegistry {
    * @param requestDedupe 请求级配置
    * @returns 防重复提交管理器实例
    */
-  getDedupeManager(requestDedupe?: DedupeConfig | boolean): IDedupeManager | undefined {
+  getDedupeManager(requestDedupe?: DedupeShortcut): IDedupeManager | undefined {
     // 场景1：实例级有配置
     if (this.dedupeManager) {
       return this.dedupeManager;
@@ -158,7 +162,7 @@ export default class ManagerRegistry {
    * @param requestCancel 请求级配置
    * @returns 请求取消管理器实例
    */
-  getCancelManager(requestCancel?: CancelConfig | boolean): ICancelManager | undefined {
+  getCancelManager(requestCancel?: CancelShortcut): ICancelManager | undefined {
     // 场景1：实例级有配置
     if (this.cancelManager) {
       return this.cancelManager;
@@ -179,7 +183,7 @@ export default class ManagerRegistry {
    * @param requestRetry 请求级配置
    * @returns 失败重试管理器实例
    */
-  getRetryManager(requestRetry?: RetryConfig | boolean): IRetryManager | undefined {
+  getRetryManager(requestRetry?: RetryShortcut): IRetryManager | undefined {
     // 场景1：实例级有配置
     if (this.retryManager) {
       return this.retryManager;
@@ -198,9 +202,9 @@ export default class ManagerRegistry {
   /**
    * 获取或创建私有级 Token 管理器
    */
-  private getOrCreatePrivateTokenManager(config?: TokenConfig): ITokenManager {
+  private getOrCreatePrivateTokenManager(config?: Partial<TokenManagerConfig>): ITokenManager {
     if (!this._privateTokenManager) {
-      this._privateTokenManager = new TokenManager(config);
+      this._privateTokenManager = new TokenManager(config || undefined);
     }
     return this._privateTokenManager;
   }
@@ -208,7 +212,7 @@ export default class ManagerRegistry {
   /**
    * 获取或创建私有级防重复提交管理器
    */
-  private getOrCreatePrivateDedupeManager(config?: DedupeConfig): IDedupeManager {
+  private getOrCreatePrivateDedupeManager(config?: Partial<DedupeConfig>): IDedupeManager {
     if (!this._privateDedupeManager) {
       this._privateDedupeManager = new DedupeManager(config);
     }
@@ -218,7 +222,7 @@ export default class ManagerRegistry {
   /**
    * 获取或创建私有级请求取消管理器
    */
-  private getOrCreatePrivateCancelManager(config?: CancelConfig): ICancelManager {
+  private getOrCreatePrivateCancelManager(config?: Partial<CancelConfig>): ICancelManager {
     if (!this._privateCancelManager) {
       this._privateCancelManager = new CancelManager(config);
     }
@@ -228,50 +232,11 @@ export default class ManagerRegistry {
   /**
    * 获取或创建私有级失败重试管理器
    */
-  private getOrCreatePrivateRetryManager(config?: RetryConfig): IRetryManager {
+  private getOrCreatePrivateRetryManager(config?: Partial<RetryConfig>): IRetryManager {
     if (!this._privateRetryManager) {
       this._privateRetryManager = new RetryManager(config);
     }
     return this._privateRetryManager;
-  }
-  
-  // ==================== 上下文创建 ====================
-  
-  createTokenContext(
-    manager: ITokenManager,
-    requestConfig?: InternalAxiosRequestConfig
-  ): { manager: ITokenManager; config: InternalAxiosRequestConfig } {
-    return { manager, config: requestConfig! };
-  }
-  
-  createDedupeContext(
-    manager: IDedupeManager,
-    requestConfig?: DedupeConfig
-  ): { manager: IDedupeManager; config: DedupeConfig } {
-    return {
-      manager,
-      config: requestConfig || { enabled: true },
-    };
-  }
-  
-  createCancelContext(
-    manager: ICancelManager,
-    requestConfig?: CancelConfig
-  ): { manager: ICancelManager; config: CancelConfig } {
-    return {
-      manager,
-      config: requestConfig || { enabled: true },
-    };
-  }
-  
-  createRetryContext(
-    manager: IRetryManager,
-    requestConfig?: RetryConfig
-  ): { manager: IRetryManager; config: RetryConfig } {
-    return {
-      manager,
-      config: requestConfig || { enabled: true },
-    };
   }
   
   // ==================== 生命周期 ====================

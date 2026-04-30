@@ -1,4 +1,7 @@
-import { AxiosRequestConfig } from 'axios';
+import { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+
+// Re-export for convenience
+export type { AxiosRequestConfig, InternalAxiosRequestConfig };
 
 // ==================== Content-Type 类型 ====================
 
@@ -500,8 +503,8 @@ export interface ConfigMergeOptions {
  * 所有管理器都应该定义自己的默认配置类型
  */
 export interface ManagerDefaultConfig {
-  /** 是否启用 */
-  enabled: boolean;
+  /** 是否启用（可选，某些管理器如 TokenManager 没有此属性） */
+  enabled?: boolean;
 }
 
 /**
@@ -509,8 +512,8 @@ export interface ManagerDefaultConfig {
  * 所有管理器的上下文都应该扩展此接口
  */
 export interface ManagerContext {
-  /** 是否启用 */
-  enabled: boolean;
+  /** 是否启用（可选，某些管理器如 TokenManager 没有此属性） */
+  enabled?: boolean;
 }
 
 // ==================== 导出管理器类类型 ====================
