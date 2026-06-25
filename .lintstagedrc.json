@@ -1,3 +1,0 @@
-{
-  "*.ts": ["npm run typecheck", "npm run lint", "vitest run --run"]
-}
